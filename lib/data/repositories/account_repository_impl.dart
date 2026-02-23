@@ -1,0 +1,111 @@
+import '../database/daos/accounts_dao.dart';
+import '../mappers/account_mapper.dart';
+import '../../domain/repositories/iaccount_repository.dart';
+import '../../domain/core/result.dart';
+import '../../domain/entities/account.dart' as domain;
+
+/// Implementation of IAccountRepository using Drift DAO
+class AccountRepositoryImpl implements IAccountRepository {
+  final AccountsDao _accountsDao;
+
+  AccountRepositoryImpl(this._accountsDao);
+
+  @override
+  Future<Result<domain.Account, Exception>> createAccount(
+    domain.Account account,
+  ) async {
+    try {
+      final companion = account.toCompanion();
+      final createdAccount = await _accountsDao.createAccount(companion);
+      return Success(createdAccount.toEntity());
+    } catch (e) {
+      return Failure(Exception('Failed to create account: $e'));
+    }
+  }
+
+  @override
+  Future<Result<domain.Account?, Exception>> getAccountById(int id) async {
+    try {
+      final account = await _accountsDao.getAccount(id);
+      return Success(account.toEntity());
+    } catch (e) {
+      return Failure(Exception('Failed to get account by ID: $e'));
+    }
+  }
+
+  @override
+  Future<Result<List<domain.Account>, Exception>> getAccountsByProfile(
+    int profileId,
+  ) async {
+    try {
+      final accounts = await _accountsDao.getAllAccounts(profileId: profileId);
+      final domainAccounts = accounts
+          .map((account) => account.toEntity())
+          .toList();
+      return Success(domainAccounts);
+    } catch (e) {
+      return Failure(Exception('Failed to get accounts by profile: $e'));
+    }
+  }
+
+  @override
+  Future<Result<List<domain.Account>, Exception>> getActiveAccountsByProfile(
+    int profileId,
+  ) async {
+    try {
+      final accounts = await _accountsDao.getAllAccounts(
+        profileId: profileId,
+        isActive: true,
+      );
+      return Success(accounts.map((account) => account.toEntity()).toList());
+    } catch (e) {
+      return Failure(Exception('Failed to get active accounts by profile: $e'));
+    }
+  }
+
+  @override
+  Future<Result<domain.Account, Exception>> updateAccount(
+    domain.Account account,
+  ) async {
+    try {
+      final companion = account.toUpdateCompanion();
+      final updatedAccount = await _accountsDao.updateAccount(companion);
+      return Success(updatedAccount.toEntity());
+    } catch (e) {
+      return Failure(Exception('Failed to update account: $e'));
+    }
+  }
+
+  @override
+  Future<Result<void, Exception>> deleteAccount(int id) async {
+    try {
+      await _accountsDao.deleteAccount(id);
+      return Success(null);
+    } catch (e) {
+      return Failure(Exception('Failed to delete account: $e'));
+    }
+  }
+
+  @override
+  Future<Result<int, Exception>> getAccountBalance(int accountId) async {
+    try {
+      final balance = await _accountsDao.getAccountBalance(accountId);
+      return Success(balance);
+    } catch (e) {
+      return Failure(Exception('Failed to get account balance: $e'));
+    }
+  }
+
+  @override
+  Future<Result<void, Exception>> updateAccountBalance(
+    int accountId,
+    int newBalanceMinor,
+  ) async {
+    try {
+      await _accountsDao.updateAccountBalance(accountId, newBalanceMinor);
+      return Success(null);
+    } catch (e) {
+      return Failure(Exception('Failed to update account balance: $e'));
+    }
+  }
+}
