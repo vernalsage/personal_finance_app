@@ -2,7 +2,6 @@ import 'dart:io';
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import 'tables/profiles_table.dart';
 import 'tables/accounts_table.dart';
@@ -33,7 +32,10 @@ part 'app_database_simple.g.dart';
   ],
 )
 class AppDatabase extends _$AppDatabase {
-  AppDatabase() : super(DatabaseConnection.delayed(_openConnection()));
+  static final AppDatabase _instance = AppDatabase._internal();
+  factory AppDatabase() => _instance;
+  AppDatabase._internal()
+    : super(DatabaseConnection.delayed(_openConnection()));
 
   @override
   int get schemaVersion => 1;
@@ -41,37 +43,19 @@ class AppDatabase extends _$AppDatabase {
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (m) async {
-      // Database will be created with proper schema by Drift
+      await m.createAll();
     },
   );
 
-  /// Opens a connection to the encrypted database
+  /// Opens a connection to the database (non-blocking)
   static Future<DatabaseConnection> _openConnection() async {
-    // Get the database file path
+    // Get the database file path asynchronously
     final dbFolder = await getApplicationDocumentsDirectory();
-    final dbPath = '${dbFolder.path}/personal_finance_encrypted.db';
+    final dbPath = '${dbFolder.path}/finance_ledger_v2.sqlite';
 
-    // Get encryption key from secure storage
-    final secureStorage = const FlutterSecureStorage();
-    String? encryptionKey = await secureStorage.read(key: 'db_encryption_key');
-
-    if (encryptionKey == null) {
-      // Generate a new encryption key
-      encryptionKey = _generateEncryptionKey();
-      await secureStorage.write(key: 'db_encryption_key', value: encryptionKey);
-    }
-
-    // Open encrypted database
+    // Open database without encryption for MVP (non-blocking)
     final file = File(dbPath);
     return DatabaseConnection(NativeDatabase(file));
-  }
-
-  /// Generate a secure encryption key
-  static String _generateEncryptionKey() {
-    // Generate a 64-character hex key (32 bytes)
-    final random = DateTime.now().millisecondsSinceEpoch.toString();
-    final key = random.padRight(32, '0').substring(0, 32);
-    return key;
   }
 
   /// Initialize database with default data

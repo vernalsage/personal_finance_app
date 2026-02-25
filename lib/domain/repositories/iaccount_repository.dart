@@ -13,7 +13,9 @@ abstract class IAccountRepository {
   Future<Result<List<Account>, Exception>> getAccountsByProfile(int profileId);
 
   /// Get active accounts for a profile
-  Future<Result<List<Account>, Exception>> getActiveAccountsByProfile(int profileId);
+  Future<Result<List<Account>, Exception>> getActiveAccountsByProfile(
+    int profileId,
+  );
 
   /// Update an existing account
   Future<Result<Account, Exception>> updateAccount(Account account);
@@ -25,5 +27,15 @@ abstract class IAccountRepository {
   Future<Result<int, Exception>> getAccountBalance(int accountId);
 
   /// Update account balance
-  Future<Result<void, Exception>> updateAccountBalance(int accountId, int newBalanceMinor);
+  Future<Result<void, Exception>> updateAccountBalance(
+    int accountId,
+    int newBalanceMinor,
+  );
+
+  /// Get total balance converted to target currency
+  Future<Result<double, Exception>> getTotalBalanceInCurrency(
+    int profileId,
+    String targetCurrency, {
+    bool? isActive,
+  });
 }

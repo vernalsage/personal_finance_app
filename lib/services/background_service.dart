@@ -1,3 +1,6 @@
+// This file is commented out because workmanager dependency was removed
+// TODO: Re-implement background service with a different solution if needed
+/*
 import 'package:workmanager/workmanager.dart';
 
 /// Service for background task management
@@ -79,3 +82,4 @@ class BackgroundService {
     // This would guide the user to settings to disable battery optimization
   }
 }
+*/

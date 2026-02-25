@@ -69,8 +69,45 @@ class AccountRepositoryImpl implements IAccountRepository {
   ) async {
     try {
       final companion = account.toUpdateCompanion();
-      final updatedAccount = await _accountsDao.updateAccount(companion);
-      return Success(updatedAccount.toEntity());
+
+      // Update balance if it's being changed
+      if (companion.balanceMinor.present) {
+        await _accountsDao.updateAccountBalance(
+          account.id,
+          companion.balanceMinor.value,
+        );
+      }
+
+      // Update other fields separately using individual update methods
+      if (companion.name.present) {
+        await _accountsDao.updateAccountName(account.id, companion.name.value);
+      }
+      if (companion.type.present) {
+        await _accountsDao.updateAccountType(account.id, companion.type.value);
+      }
+      if (companion.currency.present) {
+        await _accountsDao.updateAccountCurrency(
+          account.id,
+          companion.currency.value,
+        );
+      }
+      if (companion.description.present) {
+        await _accountsDao.updateAccountDescription(
+          account.id,
+          companion.description.value,
+        );
+      }
+      if (companion.isActive.present) {
+        if (companion.isActive.value) {
+          await _accountsDao.activateAccount(account.id);
+        } else {
+          await _accountsDao.deactivateAccount(account.id);
+        }
+      }
+
+      // Get the final updated account
+      final finalAccount = await _accountsDao.getAccount(account.id);
+      return Success(finalAccount.toEntity());
     } catch (e) {
       return Failure(Exception('Failed to update account: $e'));
     }
@@ -93,6 +130,27 @@ class AccountRepositoryImpl implements IAccountRepository {
       return Success(balance);
     } catch (e) {
       return Failure(Exception('Failed to get account balance: $e'));
+    }
+  }
+
+  /// Get total balance converted to target currency
+  @override
+  Future<Result<double, Exception>> getTotalBalanceInCurrency(
+    int profileId,
+    String targetCurrency, {
+    bool? isActive,
+  }) async {
+    try {
+      final balance = await _accountsDao.getTotalBalanceInCurrency(
+        profileId,
+        targetCurrency,
+        isActive: isActive,
+      );
+      return Success(balance);
+    } catch (e) {
+      return Failure(
+        Exception('Failed to get total balance in $targetCurrency: $e'),
+      );
     }
   }
 

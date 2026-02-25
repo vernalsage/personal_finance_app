@@ -102,16 +102,26 @@ class TransactionsNotifier extends StateNotifier<TransactionsState> {
   _getTransactionsRequiringReviewUseCase;
 
   Future<void> loadTransactionsRequiringReview(int profileId) async {
+    // Avoid loading if already loading to prevent duplicate requests
+    if (state.isLoading) return;
+
     state = state.copyWith(isLoading: true, error: null);
 
-    final result = await _getTransactionsRequiringReviewUseCase(profileId);
+    try {
+      final result = await _getTransactionsRequiringReviewUseCase(profileId);
 
-    if (result.isSuccess) {
-      state = state.copyWith(transactions: result.data!, isLoading: false);
-    } else {
+      if (result.isSuccess) {
+        state = state.copyWith(transactions: result.data!, isLoading: false);
+      } else {
+        state = state.copyWith(
+          isLoading: false,
+          error: result.error?.toString() ?? 'Unknown error',
+        );
+      }
+    } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        error: result.error?.toString() ?? 'Unknown error',
+        error: 'Failed to load transactions: $e',
       );
     }
   }

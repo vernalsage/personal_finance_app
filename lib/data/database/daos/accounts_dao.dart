@@ -1,6 +1,8 @@
 import 'package:drift/drift.dart';
+import 'package:flutter/foundation.dart';
 import '../app_database_simple.dart';
 import '../tables/accounts_table.dart';
+import '../../../application/services/hybrid_currency_service.dart';
 
 part 'accounts_dao.g.dart';
 
@@ -30,7 +32,9 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
   }
 
   Future<Account> updateAccount(AccountsCompanion entry) =>
-      update(accounts).writeReturning(entry).then((accounts) => accounts.first);
+      (update(accounts)..where((a) => a.id.equals(entry.id.value)))
+          .writeReturning(entry)
+          .then((accounts) => accounts.first);
 
   Future<int> deleteAccount(int id) =>
       (delete(accounts)..where((a) => a.id.equals(id))).go();
@@ -92,5 +96,111 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
     return (update(accounts)..where((a) => a.id.equals(accountId))).write(
       const AccountsCompanion(isActive: Value(true)),
     );
+  }
+
+  // Individual field update methods
+  Future<void> updateAccountName(int accountId, String name) {
+    return (update(accounts)..where((a) => a.id.equals(accountId))).write(
+      AccountsCompanion(name: Value(name)),
+    );
+  }
+
+  Future<void> updateAccountType(int accountId, String type) {
+    return (update(accounts)..where((a) => a.id.equals(accountId))).write(
+      AccountsCompanion(type: Value(type)),
+    );
+  }
+
+  Future<void> updateAccountCurrency(int accountId, String currency) {
+    return (update(accounts)..where((a) => a.id.equals(accountId))).write(
+      AccountsCompanion(currency: Value(currency)),
+    );
+  }
+
+  Future<void> updateAccountDescription(int accountId, String? description) {
+    return (update(accounts)..where((a) => a.id.equals(accountId))).write(
+      AccountsCompanion(description: Value(description)),
+    );
+  }
+
+  // Get accounts grouped by currency for conversion
+  Future<Map<String, List<Account>>> getAccountsByCurrency(
+    int profileId,
+  ) async {
+    final allAccounts = await getAllAccounts(
+      profileId: profileId,
+      isActive: true,
+    );
+    final grouped = <String, List<Account>>{};
+
+    for (final account in allAccounts) {
+      final currency = account.currency;
+      if (!grouped.containsKey(currency)) {
+        grouped[currency] = [];
+      }
+      grouped[currency]!.add(account);
+    }
+
+    return grouped;
+  }
+
+  // Get total balance converted to target currency
+  Future<double> getTotalBalanceInCurrency(
+    int profileId,
+    String targetCurrency, {
+    bool? isActive,
+  }) async {
+    try {
+      // Get accounts grouped by currency
+      final accountsByCurrency = await getAccountsByCurrency(profileId);
+
+      // Calculate total for each currency
+      final totalsByCurrency = <String, double>{};
+      for (final entry in accountsByCurrency.entries) {
+        final currency = entry.key;
+        final accounts = entry.value;
+
+        final total = accounts.fold<int>(
+          0,
+          (sum, account) => sum + account.balanceMinor,
+        );
+        totalsByCurrency[currency] = total / 100.0; // Convert from minor units
+      }
+
+      // Convert all totals to target currency
+      if (totalsByCurrency.isEmpty) {
+        return 0.0;
+      }
+
+      // If all accounts are already in target currency, return sum
+      if (totalsByCurrency.length == 1 &&
+          totalsByCurrency.keys.first == targetCurrency) {
+        return totalsByCurrency.values.first;
+      }
+
+      // Convert each currency total to target currency
+      double convertedTotal = 0.0;
+      for (final entry in totalsByCurrency.entries) {
+        final fromCurrency = entry.key;
+        final amount = entry.value;
+
+        if (fromCurrency == targetCurrency) {
+          convertedTotal += amount;
+        } else {
+          final convertedAmount = await HybridCurrencyService.convertCurrency(
+            amount: amount,
+            fromCurrency: fromCurrency,
+            toCurrency: targetCurrency,
+          );
+          convertedTotal += convertedAmount;
+        }
+      }
+
+      return convertedTotal;
+    } catch (e) {
+      // Don't fall back to simple sum as it gives incorrect multi-currency totals
+      debugPrint('Error in currency conversion: $e');
+      return 0.0;
+    }
   }
 }

@@ -1,5 +1,5 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:notification_listener_service/notification_listener_service.dart';
 import '../../core/errors/exceptions.dart';
 
 /// Service for handling notifications
@@ -31,20 +31,36 @@ class NotificationService {
     await _localNotifications.initialize(initSettings);
 
     // Request notification listener permission
-    final isGranted = await NotificationListenerService.isPermissionGranted();
-    if (!isGranted) {
-      await NotificationListenerService.requestPermission();
-    }
+    // TODO: Implement when notification_listener_service package is available
+    // final isGranted = await NotificationListenerService.isPermissionGranted();
+    // if (!isGranted) {
+    //   await NotificationListenerService.requestPermission();
+    // }
+
+    // For now, we'll initialize without notification listener permissions
+    debugPrint(
+      'Notification listener permission check skipped - package not available',
+    );
   }
 
   /// Check if notification listener permission is granted
   Future<bool> isNotificationListenerPermissionGranted() async {
-    return await NotificationListenerService.isPermissionGranted();
+    // TODO: Implement when notification_listener_service package is available
+    // return await NotificationListenerService.isPermissionGranted();
+    debugPrint(
+      'Notification listener permission check not implemented - package not available',
+    );
+    return false;
   }
 
   /// Request notification listener permission
   Future<bool> requestNotificationListenerPermission() async {
-    return await NotificationListenerService.requestPermission();
+    // TODO: Implement when notification_listener_service package is available
+    // return await NotificationListenerService.requestPermission();
+    debugPrint(
+      'Notification listener permission request not implemented - package not available',
+    );
+    return false;
   }
 
   /// Show a local notification
@@ -97,13 +113,16 @@ class NotificationService {
   ) async {
     try {
       // Check if permission is granted
-      final isGranted = await NotificationListenerService.isPermissionGranted();
-      if (!isGranted) {
-        throw SecurityException(
-          'Notification listener permission not granted',
-          'PERMISSION_DENIED',
-        );
-      }
+      // TODO: Implement when notification_listener_service package is available
+      // final isGranted = await NotificationListenerService.isPermissionGranted();
+      // if (!isGranted) {
+      //   throw SecurityException(
+      //     'Notification listener permission not granted',
+      //     'PERMISSION_DENIED',
+      //   );
+      // }
+
+      debugPrint('Notification listening started - placeholder implementation');
 
       // Note: The notification_listener_service package doesn't provide direct listening methods
       // This is a placeholder implementation that would need to be customized
@@ -136,7 +155,12 @@ class NotificationService {
   Future<bool> isListening() async {
     try {
       // Check if permission is granted as a basic indicator
-      return await NotificationListenerService.isPermissionGranted();
+      // TODO: Implement when notification_listener_service package is available
+      // return await NotificationListenerService.isPermissionGranted();
+      debugPrint(
+        'Notification listening status check not implemented - package not available',
+      );
+      return false;
     } catch (e) {
       return false;
     }

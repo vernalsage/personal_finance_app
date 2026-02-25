@@ -1,5 +1,5 @@
 import '../repositories/transaction_repository.dart';
-import '../repositories/account_repository.dart';
+import '../repositories/iaccount_repository.dart';
 
 /// Use case for getting financial overview
 class GetFinancialOverviewUseCase {
@@ -9,12 +9,13 @@ class GetFinancialOverviewUseCase {
   );
 
   final TransactionRepository _transactionRepository;
-  final AccountRepository _accountRepository;
+  final IAccountRepository _accountRepository;
 
   Future<Result<FinancialOverview>> call(
     int profileId, {
     DateTime? startDate,
     DateTime? endDate,
+    String? targetCurrency = 'NGN', // Default to NGN for now
   }) async {
     // Get transaction stats
     final transactionStatsResult = await _transactionRepository
@@ -24,24 +25,24 @@ class GetFinancialOverviewUseCase {
       return Result.failure(transactionStatsResult.error!);
     }
 
-    // Get total balance
-    final totalBalanceResult = await _accountRepository.getTotalBalance(
-      profileId,
-    );
+    // Get total balance converted to target currency
+    final totalBalanceResult = await _accountRepository
+        .getTotalBalanceInCurrency(profileId, targetCurrency ?? 'NGN');
 
     if (totalBalanceResult.isFailure) {
-      return Result.failure(totalBalanceResult.error!);
+      return Result.failure(totalBalanceResult.failureData.toString());
     }
 
     final stats = transactionStatsResult.data!;
-    final totalBalance = totalBalanceResult.data!;
+    final totalBalance = totalBalanceResult.successData!;
 
     return Result.success(
       FinancialOverview(
         totalIncome: stats.totalIncome,
         totalExpenses: stats.totalExpenses,
         netIncome: stats.netIncome,
-        totalBalance: totalBalance,
+        totalBalance: (totalBalance * 100)
+            .round(), // Convert back to minor units for consistency
         transactionCount: stats.transactionCount,
         averageTransactionAmount: stats.averageTransactionAmount,
       ),
@@ -57,17 +58,22 @@ class CalculateCashRunwayUseCase {
   );
 
   final TransactionRepository _transactionRepository;
-  final AccountRepository _accountRepository;
+  final IAccountRepository _accountRepository;
 
-  Future<Result<CashRunway>> call(int profileId) async {
-    // Get total balance across non-credit accounts
-    final totalBalanceResult = await _accountRepository.getTotalBalance(
-      profileId,
-      isActive: true,
-    );
+  Future<Result<CashRunway>> call(
+    int profileId, {
+    String? targetCurrency = 'NGN',
+  }) async {
+    // Get total balance across non-credit accounts converted to target currency
+    final totalBalanceResult = await _accountRepository
+        .getTotalBalanceInCurrency(
+          profileId,
+          targetCurrency ?? 'NGN',
+          isActive: true,
+        );
 
     if (totalBalanceResult.isFailure) {
-      return Result.failure(totalBalanceResult.error!);
+      return Result.failure(totalBalanceResult.failureData.toString());
     }
 
     // Get average monthly expenses from last 3 months
@@ -85,7 +91,7 @@ class CalculateCashRunwayUseCase {
       return Result.failure(transactionStatsResult.error!);
     }
 
-    final totalBalance = totalBalanceResult.data!;
+    final totalBalance = totalBalanceResult.successData!;
     final stats = transactionStatsResult.data!;
 
     // Calculate average monthly expenses
@@ -99,7 +105,8 @@ class CalculateCashRunwayUseCase {
 
     return Result.success(
       CashRunway(
-        totalBalance: totalBalance,
+        totalBalance: (totalBalance * 100)
+            .round(), // Convert back to minor units for consistency
         averageMonthlyExpenses: averageMonthlyExpenses.round(),
         runwayDays: runwayDays,
       ),

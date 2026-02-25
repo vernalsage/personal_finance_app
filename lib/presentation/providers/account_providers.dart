@@ -17,13 +17,6 @@ final accountRepositoryProvider = Provider<IAccountRepository>((ref) {
   return AccountRepositoryImpl(ref.read(accountsDaoProvider));
 });
 
-/// Provider for create account use case
-final createAccountUseCaseProvider = Provider<CreateAccountUseCase>((ref) {
-  return CreateAccountUseCase(
-    AccountRepositoryImpl(ref.read(accountsDaoProvider)),
-  );
-});
-
 /// Provider for update account use case
 final updateAccountUseCaseProvider = Provider<UpdateAccountUseCase>((ref) {
   return UpdateAccountUseCase(
@@ -34,6 +27,13 @@ final updateAccountUseCaseProvider = Provider<UpdateAccountUseCase>((ref) {
 /// Provider for delete account use case
 final deleteAccountUseCaseProvider = Provider<DeleteAccountUseCase>((ref) {
   return DeleteAccountUseCase(
+    AccountRepositoryImpl(ref.read(accountsDaoProvider)),
+  );
+});
+
+/// Provider for create account use case
+final createAccountUseCaseProvider = Provider<CreateAccountUseCase>((ref) {
+  return CreateAccountUseCase(
     AccountRepositoryImpl(ref.read(accountsDaoProvider)),
   );
 });
@@ -89,20 +89,30 @@ class AccountsNotifier extends StateNotifier<AccountsState> {
     bool? isActive,
     String? type,
   }) async {
+    // Avoid loading if already loading to prevent duplicate requests
+    if (state.isLoading) return;
+
     state = state.copyWith(isLoading: true, error: null);
 
-    final result = await _getAccountsUseCase(
-      profileId,
-      isActive: isActive,
-      type: type,
-    );
+    try {
+      final result = await _getAccountsUseCase(
+        profileId,
+        isActive: isActive,
+        type: type,
+      );
 
-    if (result.isSuccess) {
-      state = state.copyWith(accounts: result.successData!, isLoading: false);
-    } else {
+      if (result.isSuccess) {
+        state = state.copyWith(accounts: result.successData!, isLoading: false);
+      } else {
+        state = state.copyWith(
+          isLoading: false,
+          error: result.failureData.toString(),
+        );
+      }
+    } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        error: result.failureData.toString(),
+        error: 'Failed to load accounts: $e',
       );
     }
   }

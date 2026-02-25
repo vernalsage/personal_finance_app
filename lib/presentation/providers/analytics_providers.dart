@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/repositories/transaction_repository.dart';
-import '../../domain/repositories/account_repository.dart';
+import '../../domain/repositories/iaccount_repository.dart';
 import '../../domain/usecases/analytics_usecases.dart';
 
 /// Provider for transaction repository (shared)
@@ -10,7 +10,7 @@ final transactionRepositoryProvider = Provider<TransactionRepository>((ref) {
 });
 
 /// Provider for account repository (shared)
-final accountRepositoryProvider = Provider<AccountRepository>((ref) {
+final accountRepositoryProvider = Provider<IAccountRepository>((ref) {
   // TODO: Implement actual repository
   throw UnimplementedError('Account repository not implemented');
 });
