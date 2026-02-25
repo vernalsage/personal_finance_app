@@ -16,11 +16,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
   @override
   void initState() {
     super.initState();
-    // Load data when page is initialized
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // TODO: Get active profile ID
       const profileId = 1; // Placeholder
-
       ref
           .read(financialOverviewProvider.notifier)
           .loadFinancialOverview(profileId);
@@ -31,281 +28,302 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     });
   }
 
+  String _getGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
+  }
+
   @override
   Widget build(BuildContext context) {
     final financialOverviewState = ref.watch(financialOverviewProvider);
     final cashRunwayState = ref.watch(cashRunwayProvider);
     final transactionsState = ref.watch(transactionsProvider);
+    final theme = Theme.of(context);
 
     return Scaffold(
+      backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
-        title: const Text('Dashboard'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: Icon(Icons.menu, color: theme.colorScheme.onSurface),
+          onPressed: () {},
+        ),
+        actions: [
+          IconButton(
+            icon: Icon(
+              Icons.notifications_none,
+              color: theme.colorScheme.onSurface,
+            ),
+            onPressed: () {},
+          ),
+          const CircleAvatar(
+            backgroundColor: Color(0xFF0D5C58), // Teal color from mockup
+            radius: 16,
+            child: Text(
+              'D',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+        ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Financial Overview Section
-            _buildFinancialOverview(context, financialOverviewState),
+            // Header Section
+            Text(
+              '${_getGreeting()}, Deolu',
+              style: theme.textTheme.headlineMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.onSurface,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Here\'s your financial snapshot for today.',
+              style: theme.textTheme.bodyLarge?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
             const SizedBox(height: 24),
 
-            // Cash Runway Section
-            _buildCashRunway(context, cashRunwayState),
-            const SizedBox(height: 24),
+            // Metrics Cards
+            _buildTotalBalanceCard(financialOverviewState, theme),
+            const SizedBox(height: 16),
 
-            // Transactions Requiring Review Section
-            _buildTransactionsRequiringReview(context, transactionsState),
+            _buildCashRunwayCard(cashRunwayState, theme),
+            const SizedBox(height: 16),
+
+            _buildStabilityScoreCard(theme), // Static MVP placeholder
+            const SizedBox(height: 16),
+
+            _buildNeedsReviewCard(transactionsState, theme),
+            const SizedBox(height: 32),
+
+            // Recent Transactions Section
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Recent Transactions',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                TextButton(
+                  onPressed: () {},
+                  child: const Text(
+                    'View all',
+                    style: TextStyle(
+                      color: Color(0xFF0D5C58),
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            _buildRecentTransactionsList(theme),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildFinancialOverview(
-    BuildContext context,
-    FinancialOverviewState state,
-  ) {
-    if (state.isLoading) {
-      return const Card(
-        child: Padding(
-          padding: EdgeInsets.all(16),
-          child: Center(child: CircularProgressIndicator()),
-        ),
-      );
-    }
-
-    if (state.error != null) {
-      return Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Text('Error: ${state.error}'),
-        ),
-      );
-    }
+  Widget _buildTotalBalanceCard(dynamic state, ThemeData theme) {
+    if (state.isLoading) return _buildLoadingCard(theme);
 
     final overview = state.overview;
-    if (overview == null) {
-      return const Card(
-        child: Padding(
-          padding: EdgeInsets.all(16),
-          child: Text('No financial data available'),
-        ),
-      );
-    }
+    final balance = overview != null
+        ? MonetaryUtils.formatCurrency(overview.totalBalance)
+        : '₦0.00';
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Financial Overview',
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildMetricCard(
-                    context,
-                    'Total Balance',
-                    MonetaryUtils.formatCurrency(overview.totalBalance),
-                    Colors.green,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _buildMetricCard(
-                    context,
-                    'Monthly Income',
-                    MonetaryUtils.formatCurrency(overview.totalIncome),
-                    Colors.blue,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildMetricCard(
-                    context,
-                    'Monthly Expenses',
-                    MonetaryUtils.formatCurrency(overview.totalExpenses),
-                    Colors.red,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _buildMetricCard(
-                    context,
-                    'Net Income',
-                    MonetaryUtils.formatCurrency(overview.netIncome),
-                    overview.netIncome >= 0 ? Colors.green : Colors.red,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
+    return _buildCustomMetricCard(
+      theme: theme,
+      title: 'TOTAL BALANCE',
+      value: balance,
+      subtitle: 'Across active accounts',
+      iconData: Icons.account_balance_wallet_outlined,
+      iconColor: Colors.white,
+      iconBgColor: const Color(0xFF0D5C58),
     );
   }
 
-  Widget _buildCashRunway(BuildContext context, CashRunwayState state) {
-    if (state.isLoading) {
-      return const Card(
-        child: Padding(
-          padding: EdgeInsets.all(16),
-          child: Center(child: CircularProgressIndicator()),
-        ),
-      );
-    }
+  Widget _buildCashRunwayCard(dynamic state, ThemeData theme) {
+    if (state.isLoading) return _buildLoadingCard(theme);
 
-    if (state.error != null) {
-      return Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Text('Error: ${state.error}'),
-        ),
-      );
-    }
+    final runway = state.cashRunway;
+    final days = runway != null ? '${runway.runwayDays} days' : '-- days';
+    final liquid = runway != null
+        ? 'Liquid: ${MonetaryUtils.formatCurrency(runway.liquidBalance ?? 0)}'
+        : 'Awaiting data';
 
-    final cashRunway = state.cashRunway;
-    if (cashRunway == null) {
-      return const Card(
-        child: Padding(
-          padding: EdgeInsets.all(16),
-          child: Text('No cash runway data available'),
-        ),
-      );
-    }
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Cash Runway',
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              '${cashRunway.runwayDays} days',
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                color: cashRunway.runwayDays > 30
-                    ? Colors.green
-                    : Colors.orange,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Based on average monthly expenses of ${MonetaryUtils.formatCurrency(cashRunway.averageMonthlyExpenses)}',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-          ],
-        ),
-      ),
+    return _buildCustomMetricCard(
+      theme: theme,
+      title: 'CASH RUNWAY',
+      value: days,
+      subtitle: liquid,
+      iconData: Icons.trending_up,
+      iconColor: const Color(0xFF0D5C58),
+      iconBgColor: const Color(0xFFE8F3F1),
     );
   }
 
-  Widget _buildTransactionsRequiringReview(
-    BuildContext context,
-    TransactionsState state,
-  ) {
-    if (state.isLoading) {
-      return const Card(
-        child: Padding(
-          padding: EdgeInsets.all(16),
-          child: Center(child: CircularProgressIndicator()),
-        ),
-      );
-    }
-
-    if (state.error != null) {
-      return Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Text('Error: ${state.error}'),
-        ),
-      );
-    }
-
-    final transactions = state.transactions;
-    if (transactions.isEmpty) {
-      return const Card(
-        child: Padding(
-          padding: EdgeInsets.all(16),
-          child: Text('No transactions require review'),
-        ),
-      );
-    }
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Transactions Requiring Review (${transactions.length})',
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            const SizedBox(height: 16),
-            ...transactions.map(
-              (transaction) => ListTile(
-                title: Text(transaction.description),
-                subtitle: Text(
-                  MonetaryUtils.formatCurrency(transaction.amountMinor),
-                ),
-                trailing: Text('Confidence: ${transaction.confidenceScore}%'),
-                onTap: () {
-                  // TODO: Navigate to transaction details
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
+  Widget _buildStabilityScoreCard(ThemeData theme) {
+    // Placeholder for future Stability Score MVP feature
+    return _buildCustomMetricCard(
+      theme: theme,
+      title: 'STABILITY SCORE',
+      value: '72/100',
+      subtitle: 'Good standing',
+      iconData: Icons.security_outlined,
+      iconColor: const Color(0xFF2E7D32),
+      iconBgColor: const Color(0xFFE8F5E9),
     );
   }
 
-  Widget _buildMetricCard(
-    BuildContext context,
-    String title,
-    String value,
-    Color color,
-  ) {
+  Widget _buildNeedsReviewCard(dynamic state, ThemeData theme) {
+    if (state.isLoading) return _buildLoadingCard(theme);
+
+    final transactions = state.transactions ?? [];
+    final count = transactions.length.toString();
+
+    return _buildCustomMetricCard(
+      theme: theme,
+      title: 'NEEDS REVIEW',
+      value: count,
+      subtitle: 'Low confidence transactions',
+      iconData: Icons.warning_amber_rounded,
+      iconColor: const Color(0xFFED6C02),
+      iconBgColor: const Color(0xFFFFF4E5),
+    );
+  }
+
+  Widget _buildLoadingCard(ThemeData theme) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      height: 120,
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
+        color: theme.cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+        ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(color: color),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-              color: color,
-              fontWeight: FontWeight.bold,
-            ),
+      child: const Center(child: CircularProgressIndicator()),
+    );
+  }
+
+  Widget _buildCustomMetricCard({
+    required ThemeData theme,
+    required String title,
+    required String value,
+    required String subtitle,
+    required IconData iconData,
+    required Color iconColor,
+    required Color iconBgColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: theme.cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                  letterSpacing: 0.5,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                value,
+                style: theme.textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: theme.colorScheme.onSurface,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                subtitle,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: iconBgColor,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(iconData, color: iconColor, size: 24),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRecentTransactionsList(ThemeData theme) {
+    // Static placeholder mapping the "TechCorp Ltd" visual from the sample
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+        ),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.all(16),
+        leading: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surfaceContainerHighest,
+            shape: BoxShape.circle,
+          ),
+          child: const Text('💰'),
+        ),
+        title: const Text(
+          'TechCorp Ltd',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        subtitle: const Text('Salary · 24 Feb'),
+        trailing: Text(
+          '↘ ₦950,000',
+          style: theme.textTheme.titleMedium?.copyWith(
+            color: const Color(0xFF2E7D32), // Green credit
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ),
     );
   }
