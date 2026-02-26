@@ -1,4 +1,5 @@
 import '../../data/models/recurring_rule_model.dart';
+export '../../data/models/recurring_rule_model.dart' show RecurringType, RecurringFrequency;
 
 /// Recurring rule entity for recurring transactions
 class RecurringRule {

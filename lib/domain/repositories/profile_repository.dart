@@ -1,26 +1,25 @@
-import '../entities/profile.dart';
-import '../repositories/transaction_repository.dart';
+import '../core/result.dart';
 
 /// Repository interface for profile operations
 abstract class ProfileRepository {
+  /// Get profile by ID
+  Future<Result<Profile?, Exception>> getProfileById(int id);
+
   /// Create a new profile
-  Future<Result<Profile>> createProfile(Profile profile);
+  Future<Result<Profile, Exception>> createProfile(Profile profile);
 
   /// Update an existing profile
-  Future<Result<Profile>> updateProfile(Profile profile);
+  Future<Result<Profile, Exception>> updateProfile(Profile profile);
+}
 
-  /// Delete a profile
-  Future<Result<void>> deleteProfile(int profileId);
+class Profile {
+  const Profile({
+    required this.id,
+    required this.name,
+    this.email,
+  });
 
-  /// Get profile by ID
-  Future<Result<Profile?>> getProfileById(int profileId);
-
-  /// Get all profiles
-  Future<Result<List<Profile>>> getAllProfiles({bool? isActive});
-
-  /// Get active profile
-  Future<Result<Profile?>> getActiveProfile();
-
-  /// Set active profile
-  Future<Result<Profile>> setActiveProfile(int profileId);
+  final int id;
+  final String name;
+  final String? email;
 }

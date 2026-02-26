@@ -111,11 +111,11 @@ class TransactionsNotifier extends StateNotifier<TransactionsState> {
       final result = await _getTransactionsRequiringReviewUseCase(profileId);
 
       if (result.isSuccess) {
-        state = state.copyWith(transactions: result.data!, isLoading: false);
+        state = state.copyWith(transactions: result.successData!, isLoading: false);
       } else {
         state = state.copyWith(
           isLoading: false,
-          error: result.error?.toString() ?? 'Unknown error',
+          error: result.failureData?.toString() ?? 'Unknown error',
         );
       }
     } catch (e) {

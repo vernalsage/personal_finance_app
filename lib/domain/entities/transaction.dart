@@ -118,3 +118,20 @@ class Transaction {
     return 'Transaction(id: $id, profileId: $profileId, accountId: $accountId, categoryId: $categoryId, merchantId: $merchantId, amountMinor: $amountMinor, type: $type, description: $description, timestamp: $timestamp, confidenceScore: $confidenceScore, requiresReview: $requiresReview, transferId: $transferId, note: $note)';
   }
 }
+
+/// Statistics for transactions
+class TransactionStats {
+  const TransactionStats({
+    required this.totalIncome,
+    required this.totalExpenses,
+    required this.netIncome,
+    required this.transactionCount,
+    required this.averageTransactionAmount,
+  });
+
+  final int totalIncome;
+  final int totalExpenses;
+  final int netIncome;
+  final int transactionCount;
+  final double averageTransactionAmount;
+}

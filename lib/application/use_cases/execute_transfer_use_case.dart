@@ -1,7 +1,7 @@
 import '../../domain/entities/transaction.dart';
 import '../../domain/repositories/itransaction_repository.dart';
-import '../../domain/repositories/iaccount_repository.dart';
-import '../../domain/repositories/transaction_repository.dart';
+import '../../domain/repositories/account_repository.dart';
+import '../../domain/core/result.dart';
 
 /// Use case for executing transfers between accounts
 ///
@@ -11,7 +11,7 @@ class ExecuteTransferUseCase {
   ExecuteTransferUseCase(this._transactionRepository, this._accountRepository);
 
   final ITransactionRepository _transactionRepository;
-  final IAccountRepository _accountRepository;
+  final AccountRepository _accountRepository;
 
   /// Execute a transfer from source account to destination account
   ///
@@ -20,7 +20,7 @@ class ExecuteTransferUseCase {
   /// - Credit transaction to destination account (transfer_in)
   ///
   /// Both transactions share the same transferId for linking
-  Future<Result<List<Transaction>>> call({
+  Future<Result<List<Transaction>, Exception>> call({
     required int sourceAccountId,
     required int destinationAccountId,
     required int amountMinor,
@@ -36,7 +36,7 @@ class ExecuteTransferUseCase {
       );
       if (sourceAccountResult.isFailure ||
           sourceAccountResult.successData == null) {
-        return Result.failure('Source account not found');
+        return Failure(Exception('Source account not found'));
       }
 
       final destAccountResult = await _accountRepository.getAccountById(
@@ -44,7 +44,7 @@ class ExecuteTransferUseCase {
       );
       if (destAccountResult.isFailure ||
           destAccountResult.successData == null) {
-        return Result.failure('Destination account not found');
+        return Failure(Exception('Destination account not found'));
       }
 
       final sourceAccount = sourceAccountResult.successData!;
@@ -55,7 +55,7 @@ class ExecuteTransferUseCase {
 
       // Validate sufficient balance
       if (sourceAccount.balanceMinor < amountMinor) {
-        return Result.failure('Insufficient balance in source account');
+        return Failure(Exception('Insufficient balance in source account'));
       }
 
       // Generate UUID for transfer linking
@@ -104,9 +104,9 @@ class ExecuteTransferUseCase {
         debitTransaction,
       );
       if (debitResult.isFailure) {
-        return Result.failure(
-          'Failed to create debit transaction: ${debitResult.error}',
-        );
+        return Failure(Exception(
+          'Failed to create debit transaction: ${debitResult.failureData}',
+        ));
       }
 
       final creditResult = await _transactionRepository.createTransaction(
@@ -114,10 +114,10 @@ class ExecuteTransferUseCase {
       );
       if (creditResult.isFailure) {
         // Try to rollback debit transaction
-        await _transactionRepository.deleteTransaction(debitResult.data!.id);
-        return Result.failure(
-          'Failed to create credit transaction: ${creditResult.error}',
-        );
+        await _transactionRepository.deleteTransaction(debitResult.successData!.id);
+        return Failure(Exception(
+          'Failed to create credit transaction: ${creditResult.failureData}',
+        ));
       }
 
       // Update account balances
@@ -132,14 +132,14 @@ class ExecuteTransferUseCase {
 
       if (updateSourceResult.isFailure || updateDestResult.isFailure) {
         // Rollback both transactions
-        await _transactionRepository.deleteTransaction(debitResult.data!.id);
-        await _transactionRepository.deleteTransaction(creditResult.data!.id);
-        return Result.failure('Failed to update account balances');
+        await _transactionRepository.deleteTransaction(debitResult.successData!.id);
+        await _transactionRepository.deleteTransaction(creditResult.successData!.id);
+        return Failure(Exception('Failed to update account balances'));
       }
 
-      return Result.success([debitResult.data!, creditResult.data!]);
+      return Success([debitResult.successData!, creditResult.successData!]);
     } catch (e) {
-      return Result.failure('Transfer failed: $e');
+      return Failure(Exception('Transfer failed: $e'));
     }
   }
 

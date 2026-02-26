@@ -10,9 +10,11 @@ class Budgets extends Table {
 
   IntColumn get id => integer().autoIncrement()();
   
-  IntColumn get profileId => integer().references(Profiles, #id, onDelete: KeyAction.cascade)();
+  IntColumn get profileId => integer()
+      .references(Profiles, #id, onDelete: KeyAction.cascade)();
   
-  IntColumn get categoryId => integer().references(Categories, #id, onDelete: KeyAction.cascade)();
+  IntColumn get categoryId => integer()
+      .references(Categories, #id, onDelete: KeyAction.cascade)();
   
   IntColumn get amountMinor => integer()(); // CRITICAL: Integer minor units only
   

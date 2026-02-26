@@ -12,9 +12,17 @@ class BudgetsDao extends DatabaseAccessor<AppDatabase> with _$BudgetsDaoMixin {
       into(budgets).insertReturning(entry);
   Future<Budget> getBudget(int id) =>
       (select(budgets)..where((b) => b.id.equals(id))).getSingle();
-  Future<List<Budget>> getAllBudgets({int? profileId}) {
+  Future<List<Budget>> getAllBudgets({
+    int? profileId,
+    int? month,
+    int? year,
+    int? categoryId,
+  }) {
     final query = select(budgets);
     if (profileId != null) query.where((b) => b.profileId.equals(profileId));
+    if (month != null) query.where((b) => b.month.equals(month));
+    if (year != null) query.where((b) => b.year.equals(year));
+    if (categoryId != null) query.where((b) => b.categoryId.equals(categoryId));
     return query.get();
   }
 

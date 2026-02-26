@@ -125,15 +125,22 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
   Future<int> getTotalAmountByType(
     int profileId,
     String type, {
+    int? categoryId,
     DateTime? startDate,
     DateTime? endDate,
   }) async {
     // Use Drift's type-safe query builder instead of raw SQL
     var query = selectOnly(transactions);
     query.addColumns([transactions.amountMinor.sum()]);
-    query.where(
-      transactions.profileId.equals(profileId) & transactions.type.equals(type),
-    );
+    
+    var predicate = transactions.profileId.equals(profileId) & 
+                    transactions.type.equals(type);
+    
+    if (categoryId != null) {
+      predicate &= transactions.categoryId.equals(categoryId);
+    }
+    
+    query.where(predicate);
 
     if (startDate != null) {
       query.where(transactions.timestamp.isBiggerOrEqualValue(startDate));
@@ -144,6 +151,70 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
 
     final result = await query.getSingle();
     return result.read(transactions.amountMinor.sum()) ?? 0;
+  }
+
+  Future<List<Transaction>> getTransactionsByTransferId(
+    int profileId,
+    String transferId,
+  ) {
+    return (select(transactions)..where(
+          (t) => t.profileId.equals(profileId) & t.transferId.equals(transferId),
+        ))
+        .get();
+  }
+
+  Future<int> getTransactionCount({
+    required int profileId,
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
+    var query = selectOnly(transactions);
+    query.addColumns([transactions.id.count()]);
+    query.where(transactions.profileId.equals(profileId));
+
+    if (startDate != null) {
+      query.where(transactions.timestamp.isBiggerOrEqualValue(startDate));
+    }
+    if (endDate != null) {
+      query.where(transactions.timestamp.isSmallerOrEqualValue(endDate));
+    }
+
+    final result = await query.getSingle();
+    return result.read(transactions.id.count()) ?? 0;
+  }
+
+  /// Atomic transfer: creates two linked transactions
+  Future<List<Transaction>> executeTransfer({
+    required TransactionsCompanion outEntry,
+    required TransactionsCompanion inEntry,
+  }) async {
+    return transaction(() async {
+      final outResult = await into(transactions).insertReturning(outEntry);
+      final inResult = await into(transactions).insertReturning(inEntry);
+      
+      // Update account balances
+      if (outEntry.accountId.present && outEntry.amountMinor.present) {
+        await _updateAccountBalance(
+          outEntry.accountId.value,
+          outEntry.amountMinor.value,
+        );
+      }
+      if (inEntry.accountId.present && inEntry.amountMinor.present) {
+        await _updateAccountBalance(
+          inEntry.accountId.value,
+          inEntry.amountMinor.value,
+        );
+      }
+      
+      return [outResult, inResult];
+    });
+  }
+
+  Future<void> _updateAccountBalance(int accountId, int amountChange) async {
+    await customStatement(
+      'UPDATE accounts SET balance_minor = balance_minor + ? WHERE id = ?',
+      [amountChange, accountId],
+    );
   }
 }
 

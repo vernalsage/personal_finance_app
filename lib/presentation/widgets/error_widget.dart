@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 
 /// Reusable error widget
-class ErrorWidget extends StatelessWidget {
-  const ErrorWidget({
+class ErrorDisplayWidget extends StatelessWidget {
+  const ErrorDisplayWidget({
     super.key,
-    required this.message,
+    required this.error,
     this.onRetry,
     this.retryText = 'Retry',
   });
 
-  final String message;
+  final String error;
   final VoidCallback? onRetry;
   final String retryText;
 
@@ -35,12 +35,10 @@ class ErrorWidget extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              message,
+              error,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(
-                  context,
-                ).colorScheme.onSurface.withValues(alpha: 0.6),
+                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
               ),
             ),
             if (onRetry != null) ...[
@@ -92,9 +90,7 @@ class ErrorCard extends StatelessWidget {
               message,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(
-                  context,
-                ).colorScheme.onSurface.withValues(alpha: 0.6),
+                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
               ),
             ),
             if (onRetry != null) ...[

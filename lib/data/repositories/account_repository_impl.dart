@@ -1,11 +1,11 @@
 import '../database/daos/accounts_dao.dart';
 import '../mappers/account_mapper.dart';
-import '../../domain/repositories/iaccount_repository.dart';
+import '../../domain/repositories/account_repository.dart';
 import '../../domain/core/result.dart';
 import '../../domain/entities/account.dart' as domain;
 
-/// Implementation of IAccountRepository using Drift DAO
-class AccountRepositoryImpl implements IAccountRepository {
+/// Implementation of AccountRepository using Drift DAO
+class AccountRepositoryImpl implements AccountRepository {
   final AccountsDao _accountsDao;
 
   AccountRepositoryImpl(this._accountsDao);
@@ -27,7 +27,7 @@ class AccountRepositoryImpl implements IAccountRepository {
   Future<Result<domain.Account?, Exception>> getAccountById(int id) async {
     try {
       final account = await _accountsDao.getAccount(id);
-      return Success(account.toEntity());
+      return Success(account?.toEntity());
     } catch (e) {
       return Failure(Exception('Failed to get account by ID: $e'));
     }
@@ -107,7 +107,7 @@ class AccountRepositoryImpl implements IAccountRepository {
 
       // Get the final updated account
       final finalAccount = await _accountsDao.getAccount(account.id);
-      return Success(finalAccount.toEntity());
+      return Success(finalAccount!.toEntity());
     } catch (e) {
       return Failure(Exception('Failed to update account: $e'));
     }

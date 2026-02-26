@@ -3,11 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../application/services/hybrid_currency_service.dart';
 import '../../../core/utils/currency_utils.dart';
 import '../../../domain/entities/transaction.dart';
+import '../../../main.dart';
 import '../../providers/account_providers.dart';
 import '../../providers/transaction_providers.dart';
 import '../transaction/add_transaction_screen.dart';
 import '../transfer/transfer_screen.dart';
 import '../transactions/transactions_screen.dart';
+import '../recurring/recurring_rules_screen.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -20,181 +22,46 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   bool _dataLoaded = false;
   Object? _previousAccounts;
   Future<double>? _totalBalanceFuture;
+  bool _balanceVisible = true;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadData();
-    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadData());
   }
 
   Future<void> _loadData() async {
     if (_dataLoaded) return;
-
-    const profileId = 1; // TODO: Get from user session
-
     try {
       await Future.wait([
-        ref.read(accountsProvider.notifier).loadAccounts(profileId),
-        ref
-            .read(transactionsProvider.notifier)
-            .loadTransactionsRequiringReview(profileId),
+        ref.read(accountsProvider.notifier).loadAccounts(1),
+        ref.read(transactionsProvider.notifier).loadTransactionsRequiringReview(1),
       ]);
-      if (mounted) {
-        setState(() {
-          _dataLoaded = true;
-        });
-      }
+      if (mounted) setState(() => _dataLoaded = true);
     } catch (e) {
       debugPrint('Error loading dashboard data: $e');
     }
   }
 
   Future<double> _calculateTotalBalance(dynamic accounts) async {
-    double totalNGN = 0.0;
+    double total = 0.0;
     for (final account in accounts) {
-      final balanceInNGN = await HybridCurrencyService.convertCurrency(
+      final converted = await HybridCurrencyService.convertCurrency(
         amount: account.balanceMinor / 100.0,
         fromCurrency: account.currency,
         toCurrency: 'NGN',
       );
-      totalNGN += balanceInNGN;
+      total += converted;
     }
-    return totalNGN;
+    return total;
   }
 
-  // --- UI Helper Methods to reduce nesting ---
-
-  Widget _buildBadge(String text, Color bgColor, Color textColor) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontSize: 12,
-          color: textColor,
-          fontWeight: FontWeight.w500,
-        ),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
-    );
+  String _getGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Good morning, Deolu';
+    if (hour < 17) return 'Good afternoon, Deolu';
+    return 'Good evening, Deolu';
   }
-
-  Widget _buildReviewCard(Transaction transaction, dynamic accountsState) {
-    final isCredit = transaction.amountMinor >= 0;
-    final amountColor = isCredit
-        ? const Color(0xFF2E7D32)
-        : const Color(0xFFC62828);
-    final iconColor = _getCategoryColor(transaction.description);
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            // Left: Icon
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: iconColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(
-                _getCategoryIcon(transaction.description),
-                color: iconColor,
-                size: 20,
-              ),
-            ),
-            const SizedBox(width: 12),
-
-            // Middle: Details
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    transaction.description,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 16,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      _buildBadge(
-                        _getCategoryName(transaction.description),
-                        Colors.grey[100]!,
-                        const Color(0xFF1976D2),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _buildBadge(
-                          _getAccountName(transaction.accountId, accountsState),
-                          Colors.blue[50]!,
-                          const Color(0xFF1976D2),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
-
-            // Right: Amount
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      CurrencyUtils.formatMinorToDisplay(
-                        transaction.amountMinor,
-                        'NGN',
-                      ),
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: amountColor,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Icon(
-                      isCredit ? Icons.arrow_downward : Icons.arrow_upward,
-                      color: amountColor,
-                      size: 16,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  _formatDateTime(transaction.timestamp),
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Color(0xFF757575),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // --- Main Build ---
 
   @override
   Widget build(BuildContext context) {
@@ -206,384 +73,670 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       _totalBalanceFuture = _calculateTotalBalance(accountsState.accounts);
     }
 
-    final reviewTransactions = transactionsState.transactions
-        .where((t) => t.requiresReview)
-        .toList();
+    final reviewTransactions =
+        transactionsState.transactions.where((t) => t.requiresReview).toList();
 
     return Scaffold(
+      backgroundColor: kBackground,
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 1. Balance Card
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(20.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Total Balance',
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onSurfaceVariant,
-                            ),
-                      ),
-                      const SizedBox(height: 8),
-                      FutureBuilder<double>(
-                        future: _totalBalanceFuture,
-                        builder: (context, snapshot) {
-                          if (snapshot.hasData) {
-                            return Text(
-                              CurrencyUtils.formatMinorToDisplay(
-                                (snapshot.data! * 100).round(),
-                                'NGN',
-                              ),
-                              style: Theme.of(context).textTheme.headlineMedium
-                                  ?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.primary,
-                                  ),
-                            );
-                          } else if (snapshot.hasError) {
-                            return Text(
-                              'Error loading balance',
-                              style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(color: Colors.red),
-                            );
-                          } else {
-                            return const Text('Loading...');
-                          }
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // 2. Transactions Requiring Review Section
-              if (reviewTransactions.isNotEmpty) ...[
-                Row(
-                  children: [
-                    Text(
-                      'Transactions Requiring Review',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: Colors.orange[500],
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      '${reviewTransactions.length}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
+        child: RefreshIndicator(
+          color: kPrimary,
+          onRefresh: () async {
+            setState(() => _dataLoaded = false);
+            await _loadData();
+          },
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // ─── Header ────────────────────────────────────────────────
+                _buildHeader(),
                 const SizedBox(height: 16),
 
-                ...reviewTransactions
-                    .take(5)
-                    .map((t) => _buildReviewCard(t, accountsState)),
+                // ─── Balance Card ──────────────────────────────────────────
+                _buildBalanceCard(),
+                const SizedBox(height: 12),
 
-                if (reviewTransactions.length > 5) ...[
-                  const SizedBox(height: 8),
-                  Center(
-                    child: TextButton(
-                      onPressed: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) => const TransactionsScreen(),
-                          ),
-                        );
-                      },
-                      child: const Text('View All'),
-                    ),
-                  ),
+                // ─── Metric Chips Row ──────────────────────────────────────
+                _buildMetricRow(accountsState),
+                const SizedBox(height: 12),
+
+                // ─── Needs Review Banner ───────────────────────────────────
+                if (reviewTransactions.isNotEmpty) ...[
+                  _buildReviewBanner(reviewTransactions.length),
+                  const SizedBox(height: 12),
                 ],
-                const SizedBox(height: 24),
+
+                // ─── Recent Transactions ───────────────────────────────────
+                _buildRecentTransactionsSection(transactionsState, accountsState),
+                const SizedBox(height: 80),
               ],
-
-              // 3. Recent Transactions Header
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Recent Transactions',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  TextButton(
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (context) => const TransactionsScreen(),
-                        ),
-                      );
-                    },
-                    child: const Text('View All'),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-
-              // 4. Recent Transactions List
-              if (transactionsState.isLoading)
-                const Center(child: CircularProgressIndicator())
-              else if (transactionsState.error != null)
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Text(
-                      'Error: ${transactionsState.error}',
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.error,
-                      ),
-                    ),
-                  ),
-                )
-              else if (transactionsState.transactions.isEmpty)
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Text(
-                      'No transactions yet',
-                      style: Theme.of(context).textTheme.bodyLarge,
-                    ),
-                  ),
-                )
-              else
-                ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: transactionsState.transactions.length,
-                  separatorBuilder: (context, index) => const Divider(),
-                  itemBuilder: (context, index) {
-                    return _TransactionTile(
-                      transaction: transactionsState.transactions[index],
-                    );
-                  },
-                ),
-            ],
+            ),
           ),
         ),
       ),
-      floatingActionButton: PopupMenuButton<String>(
-        itemBuilder: (BuildContext context) {
-          return const [
-            PopupMenuItem(
-              value: 'add_transaction',
-              child: Row(
-                children: [
-                  Icon(Icons.add_circle_outline),
-                  SizedBox(width: 8),
-                  Text('Add Transaction'),
-                ],
+      floatingActionButton: _buildFAB(accountsState),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Row(
+      children: [
+        // Avatar
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: kPrimaryBg,
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(Icons.person, color: kPrimary, size: 22),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'WELCOME BACK',
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: kTextSecondary,
+                  letterSpacing: 0.8,
+                ),
               ),
+              Text(
+                _getGreeting(),
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ],
+          ),
+        ),
+        // Recurring
+        IconButton(
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const RecurringRulesScreen()),
+          ),
+          icon: const Icon(Icons.sync_outlined, color: kTextSecondary, size: 22),
+          style: IconButton.styleFrom(
+            backgroundColor: kCardBg,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+              side: const BorderSide(color: kBorder),
             ),
-            PopupMenuItem(
-              value: 'transfer_funds',
-              child: Row(
-                children: [
-                  Icon(Icons.swap_horiz),
-                  SizedBox(width: 8),
-                  Text('Transfer Funds'),
-                ],
-              ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        // Bell
+        IconButton(
+          onPressed: () {},
+          icon: const Icon(Icons.notifications_outlined,
+              color: kTextSecondary, size: 22),
+          style: IconButton.styleFrom(
+            backgroundColor: kCardBg,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+              side: const BorderSide(color: kBorder),
             ),
-          ];
-        },
-        onSelected: (String value) {
-          if (accountsState.accounts.isEmpty) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Please add an Account first.'),
-                backgroundColor: Colors.orange,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBalanceCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF19AEA7), Color(0xFF0D8A84)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Total Balance',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Colors.white.withOpacity(0.8),
+                ),
               ),
-            );
-            return;
-          }
-          if (value == 'add_transaction') {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) => const AddTransactionScreen(),
+              GestureDetector(
+                onTap: () => setState(() => _balanceVisible = !_balanceVisible),
+                child: Icon(
+                  _balanceVisible
+                      ? Icons.visibility_outlined
+                      : Icons.visibility_off_outlined,
+                  color: Colors.white.withOpacity(0.8),
+                  size: 20,
+                ),
               ),
-            );
-          } else if (value == 'transfer_funds') {
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (context) => const TransferScreen()),
-            );
-          }
-        },
-        child: const Icon(Icons.add),
+            ],
+          ),
+          const SizedBox(height: 8),
+          FutureBuilder<double>(
+            future: _totalBalanceFuture,
+            builder: (context, snapshot) {
+              String balance = 'Loading...';
+              if (snapshot.hasData) {
+                balance = CurrencyUtils.formatMinorToDisplay(
+                  (snapshot.data! * 100).round(),
+                  'NGN',
+                );
+              } else if (snapshot.hasError) {
+                balance = 'Error loading balance';
+              }
+              return Text(
+                _balanceVisible ? balance : '₦ ••••••',
+                style: const TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                  letterSpacing: -0.5,
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              const Icon(Icons.trending_up, color: Colors.white70, size: 14),
+              const SizedBox(width: 4),
+              Text(
+                '+2.5% from last month',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Colors.white70,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
 
-  // --- Logic Helpers ---
-
-  Color _getCategoryColor(String? description) {
-    switch (description?.toLowerCase()) {
-      case 'techcorp ltd':
-      case 'salary':
-        return const Color(0xFF4CAF50);
-      case 'chicken republic':
-        return const Color(0xFFFF6B35);
-      case 'bolt':
-        return const Color(0xFF4285F4);
-      case 'ikedc':
-        return const Color(0xFFF44336);
-      case 'jumia':
-        return const Color(0xFF9C27B0);
-      default:
-        return Colors.grey[500]!;
-    }
+  Widget _buildMetricRow(dynamic accountsState) {
+    return Row(
+      children: [
+        Expanded(
+          child: _MetricCard(
+            icon: Icons.calendar_today_outlined,
+            label: 'Cash Runway',
+            value: '6 Months',
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _MetricCard(
+            icon: Icons.shield_outlined,
+            label: 'Stability Score',
+            value: '85/100',
+          ),
+        ),
+      ],
+    );
   }
 
-  IconData _getCategoryIcon(String? description) {
-    switch (description?.toLowerCase()) {
-      case 'techcorp ltd':
-      case 'salary':
-        return Icons.payments;
-      case 'chicken republic':
-        return Icons.restaurant;
-      case 'bolt':
-        return Icons.directions_car;
-      case 'ikedc':
-        return Icons.receipt;
-      case 'jumia':
-        return Icons.shopping_cart;
-      default:
-        return Icons.help_outline;
-    }
+  Widget _buildReviewBanner(int count) {
+    return GestureDetector(
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const TransactionsScreen()),
+      ),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: kWarning.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: kWarning.withOpacity(0.3)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 3,
+              height: 32,
+              decoration: BoxDecoration(
+                color: kWarning,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'NEEDS REVIEW',
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: kWarning,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                  Text(
+                    '$count Items Pending',
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: kTextPrimary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const TransactionsScreen()),
+              ),
+              child: const Text('View All'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
-  String _getCategoryName(String? description) {
-    switch (description?.toLowerCase()) {
-      case 'techcorp ltd':
-        return 'Salary';
-      case 'chicken republic':
-        return 'Food & Dining';
-      case 'bolt':
-        return 'Transportation';
-      case 'ikedc':
-        return 'Bills & Utilities';
-      case 'jumia':
-        return 'Shopping';
-      default:
-        return 'Uncategorized';
-    }
+  Widget _buildRecentTransactionsSection(
+      dynamic transactionsState, dynamic accountsState) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('Recent Transactions',
+                style: Theme.of(context).textTheme.titleMedium),
+            TextButton(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const TransactionsScreen()),
+              ),
+              child: const Text('See all'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        if (transactionsState.isLoading)
+          const Center(
+              child: Padding(
+                  padding: EdgeInsets.all(32),
+                  child: CircularProgressIndicator(color: kPrimary)))
+        else if (transactionsState.error != null)
+          _buildEmptyState(
+              icon: Icons.error_outline,
+              message: 'Failed to load pending transactions: ${transactionsState.error}',
+              color: kError)
+        else if (transactionsState.transactions.isEmpty)
+          _buildEmptyState(
+              icon: Icons.receipt_long_outlined,
+              message: 'No transactions yet',
+              color: kTextSecondary)
+        else
+          Container(
+            decoration: BoxDecoration(
+              color: kCardBg,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: kBorder),
+            ),
+            child: Column(
+              children: transactionsState.transactions
+                  .take(5)
+                  .toList()
+                  .asMap()
+                  .entries
+                  .map<Widget>((entry) {
+                final i = entry.key;
+                final t = entry.value as Transaction;
+                final isLast = i == (transactionsState.transactions.length.clamp(0, 5) - 1);
+                return Column(
+                  children: [
+                    _DashboardTransactionRow(
+                      transaction: t,
+                      accountName: _getAccountName(t.accountId, accountsState),
+                    ),
+                    if (!isLast)
+                      const Divider(height: 1, indent: 60, endIndent: 16),
+                  ],
+                );
+              }).toList(),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildEmptyState({
+    required IconData icon,
+    required String message,
+    required Color color,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(32),
+      decoration: BoxDecoration(
+        color: kCardBg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: kBorder),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, size: 40, color: color.withOpacity(0.5)),
+          const SizedBox(height: 8),
+          Text(message, style: Theme.of(context).textTheme.bodyMedium),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFAB(dynamic accountsState) {
+    return PopupMenuButton<String>(
+      onSelected: (value) {
+        if (accountsState.accounts.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Please add an account first.'),
+            backgroundColor: kWarning,
+          ));
+          return;
+        }
+        if (value == 'add_transaction') {
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const AddTransactionScreen()),
+          );
+        } else if (value == 'transfer_funds') {
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const TransferScreen()),
+          );
+        }
+      },
+      itemBuilder: (_) => const [
+        PopupMenuItem(
+          value: 'add_transaction',
+          child: Row(children: [
+            Icon(Icons.add_circle_outline, color: kPrimary),
+            SizedBox(width: 10),
+            Text('Add Transaction'),
+          ]),
+        ),
+        PopupMenuItem(
+          value: 'transfer_funds',
+          child: Row(children: [
+            Icon(Icons.swap_horiz, color: kPrimary),
+            SizedBox(width: 10),
+            Text('Transfer Funds'),
+          ]),
+        ),
+      ],
+      child: Container(
+        width: 56,
+        height: 56,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [kPrimary, kPrimaryDark],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: Color(0x4019AEA7),
+              blurRadius: 12,
+              offset: Offset(0, 4),
+            ),
+          ],
+        ),
+        child: const Icon(Icons.add, color: Colors.white, size: 26),
+      ),
+    );
   }
 
   String _getAccountName(int accountId, dynamic accountsState) {
-    final account = accountsState.accounts
-        .where((acc) => acc.id == accountId)
-        .firstOrNull;
-    return account?.name ?? 'Unknown Account';
-  }
-
-  String _formatDateTime(DateTime dateTime) {
-    final now = DateTime.now();
-    final difference = now.difference(dateTime);
-
-    if (difference.inDays == 0) {
-      return 'Today at ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
-    } else if (difference.inDays == 1) {
-      return 'Yesterday at ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
-    } else {
-      return '${dateTime.day} ${_getMonthAbbreviation(dateTime.month)} at ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
-    }
-  }
-
-  String _getMonthAbbreviation(int month) {
-    const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    return months[month - 1];
+    return accountsState.accounts
+            .where((a) => a.id == accountId)
+            .firstOrNull
+            ?.name ??
+        'Unknown';
   }
 }
 
-class _TransactionTile extends StatelessWidget {
-  final Transaction transaction;
+class _MetricCard extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
 
-  const _TransactionTile({required this.transaction});
+  const _MetricCard({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: kCardBg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: kBorder),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: kPrimary, size: 18),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label,
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodySmall
+                      ?.copyWith(color: kTextSecondary)),
+              Text(value,
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleMedium
+                      ?.copyWith(fontSize: 14)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DashboardTransactionRow extends StatelessWidget {
+  final Transaction transaction;
+  final String accountName;
+
+  const _DashboardTransactionRow({
+    required this.transaction,
+    required this.accountName,
+  });
 
   @override
   Widget build(BuildContext context) {
     final isCredit = transaction.amountMinor >= 0;
-    final amountColor = isCredit
-        ? Theme.of(context).colorScheme.primary
-        : Theme.of(context).colorScheme.error;
+    final amountColor = isCredit ? kSuccess : kError;
+    final iconColor = _getCategoryColor(transaction.description);
+    final amount = CurrencyUtils.formatMinorToDisplay(
+        transaction.amountMinor.abs(), 'NGN');
 
-    return ListTile(
-      leading: CircleAvatar(
-        backgroundColor: amountColor.withOpacity(0.1),
-        child: Icon(
-          isCredit ? Icons.arrow_downward : Icons.arrow_upward,
-          color: amountColor,
-        ),
-      ),
-      title: Text(
-        transaction.description,
-        style: Theme.of(context).textTheme.bodyLarge,
-      ),
-      subtitle: Text(
-        _formatDate(transaction.timestamp),
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-          color: Theme.of(context).colorScheme.onSurfaceVariant,
-        ),
-      ),
-      trailing: Flexible(
-        child: Text(
-          '${isCredit ? '+' : '-'}₦${(transaction.amountMinor.abs() / 100).toStringAsFixed(2)}',
-          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-            fontWeight: FontWeight.bold,
-            color: amountColor,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: iconColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(_getCategoryIcon(transaction.description),
+                color: iconColor, size: 20),
           ),
-          overflow: TextOverflow.ellipsis,
-          maxLines: 1,
-        ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  transaction.description,
+                  style: Theme.of(context).textTheme.bodyLarge,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Row(
+                  children: [
+                    _Chip(text: _getCategoryName(transaction.description)),
+                    const SizedBox(width: 6),
+                    _Chip(text: accountName, isAccount: true),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                '${isCredit ? '+' : '-'}$amount',
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  color: amountColor,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                _formatTime(transaction.timestamp),
+                style: Theme.of(context)
+                    .textTheme
+                    .bodySmall
+                    ?.copyWith(color: kTextSecondary),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
 
-  String _formatDate(DateTime date) {
-    final now = DateTime.now();
-    final difference = now.difference(date);
-
-    if (difference.inDays == 0) {
-      return 'Today';
-    } else if (difference.inDays == 1) {
-      return 'Yesterday';
-    } else if (difference.inDays < 7) {
-      return '${difference.inDays} days ago';
-    } else {
-      return '${date.day}/${date.month}/${date.year}';
+  Color _getCategoryColor(String? desc) {
+    switch (desc?.toLowerCase()) {
+      case 'techcorp ltd':
+      case 'salary':
+        return const Color(0xFF16A34A);
+      case 'chicken republic':
+      case 'kitchen & grill':
+        return const Color(0xFFEA580C);
+      case 'bolt':
+        return const Color(0xFF2563EB);
+      case 'ikedc':
+        return const Color(0xFFDC2626);
+      case 'jumia':
+      case 'amazon':
+        return const Color(0xFF7C3AED);
+      default:
+        return const Color(0xFF6B7A8D);
     }
+  }
+
+  IconData _getCategoryIcon(String? desc) {
+    switch (desc?.toLowerCase()) {
+      case 'techcorp ltd':
+      case 'salary':
+      case 'inlaks computers ltd':
+        return Icons.payments_outlined;
+      case 'chicken republic':
+      case 'kitchen & grill':
+      case 'starbucks coffee':
+        return Icons.restaurant_outlined;
+      case 'bolt':
+      case 'uber trip':
+        return Icons.directions_car_outlined;
+      case 'ikedc':
+      case 'utility bill':
+        return Icons.bolt_outlined;
+      case 'jumia':
+      case 'amazon prime web svcs':
+        return Icons.shopping_bag_outlined;
+      case 'apple store':
+        return Icons.phone_iphone_outlined;
+      case 'monthly salary':
+        return Icons.attach_money;
+      default:
+        return Icons.receipt_outlined;
+    }
+  }
+
+  String _getCategoryName(String? desc) {
+    switch (desc?.toLowerCase()) {
+      case 'techcorp ltd':
+      case 'salary':
+      case 'inlaks computers ltd':
+      case 'monthly salary':
+        return 'Salary';
+      case 'chicken republic':
+      case 'kitchen & grill':
+      case 'starbucks coffee':
+        return 'Dining';
+      case 'bolt':
+      case 'uber trip':
+        return 'Transport';
+      case 'ikedc':
+      case 'utility bill':
+        return 'Bills';
+      case 'jumia':
+      case 'amazon prime web svcs':
+        return 'Services';
+      default:
+        return 'Other';
+    }
+  }
+
+  String _formatTime(DateTime dt) {
+    final now = DateTime.now();
+    final diff = now.difference(dt);
+    if (diff.inDays == 0) {
+      return 'Today ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')} ${dt.hour < 12 ? 'AM' : 'PM'}';
+    } else if (diff.inDays == 1) {
+      return 'Yesterday';
+    } else {
+      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      return '${months[dt.month - 1]} ${dt.day}';
+    }
+  }
+}
+
+class _Chip extends StatelessWidget {
+  final String text;
+  final bool isAccount;
+
+  const _Chip({required this.text, this.isAccount = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: isAccount ? kPrimaryBg : kBackground,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w500,
+          color: isAccount ? kPrimary : kTextSecondary,
+        ),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+    );
   }
 }

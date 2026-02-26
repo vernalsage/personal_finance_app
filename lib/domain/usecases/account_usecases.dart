@@ -1,12 +1,12 @@
 import '../entities/account.dart';
-import '../repositories/iaccount_repository.dart';
+import '../repositories/account_repository.dart';
 import '../core/result.dart';
 
 /// Use case for creating an account
 class CreateAccountUseCase {
   CreateAccountUseCase(this._repository);
 
-  final IAccountRepository _repository;
+  final AccountRepository _repository;
 
   Future<Result<Account, Exception>> call(Account account) async {
     // Validate account
@@ -30,7 +30,7 @@ class CreateAccountUseCase {
 class UpdateAccountUseCase {
   UpdateAccountUseCase(this._repository);
 
-  final IAccountRepository _repository;
+  final AccountRepository _repository;
 
   Future<Result<Account, Exception>> call(Account account) async {
     // Validate account
@@ -50,7 +50,7 @@ class UpdateAccountUseCase {
 class DeleteAccountUseCase {
   DeleteAccountUseCase(this._repository);
 
-  final IAccountRepository _repository;
+  final AccountRepository _repository;
 
   Future<Result<void, Exception>> call(int accountId) async {
     return await _repository.deleteAccount(accountId);
@@ -61,7 +61,7 @@ class DeleteAccountUseCase {
 class GetAccountsUseCase {
   GetAccountsUseCase(this._repository);
 
-  final IAccountRepository _repository;
+  final AccountRepository _repository;
 
   Future<Result<List<Account>, Exception>> call(
     int profileId, {
@@ -80,7 +80,7 @@ class GetAccountsUseCase {
 class UpdateAccountBalanceUseCase {
   UpdateAccountBalanceUseCase(this._repository);
 
-  final IAccountRepository _repository;
+  final AccountRepository _repository;
 
   Future<Result<Account, Exception>> call(
     int accountId,

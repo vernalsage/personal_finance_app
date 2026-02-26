@@ -73,3 +73,33 @@ class Budget {
     return '${year.toString().padLeft(4, '0')}-${month.toString().padLeft(2, '0')}';
   }
 }
+
+/// Budget with its current usage status
+class BudgetWithUsage {
+  const BudgetWithUsage({
+    required this.budget,
+    required this.usage,
+  });
+
+  final Budget budget;
+  final BudgetUsage usage;
+}
+
+/// Budget usage statistics
+class BudgetUsage {
+  const BudgetUsage({
+    required this.budgetAmountMinor,
+    required this.spentAmountMinor,
+    required this.remainingAmountMinor,
+    required this.usagePercentage,
+    required this.isOverBudget,
+    required this.isNearLimit,
+  });
+
+  final int budgetAmountMinor;
+  final int spentAmountMinor;
+  final int remainingAmountMinor;
+  final double usagePercentage;
+  final bool isOverBudget;
+  final bool isNearLimit;
+}

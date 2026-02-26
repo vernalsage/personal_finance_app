@@ -72,7 +72,7 @@ class TransactionsNotifier extends StateNotifier<TransactionsState> {
     } else {
       state = state.copyWith(
         isLoading: false,
-        error: result.error?.toString() ?? 'Unknown error',
+        error: result.failureData?.toString() ?? 'Unknown error',
       );
     }
   }
@@ -94,7 +94,7 @@ class TransactionsNotifier extends StateNotifier<TransactionsState> {
     } else {
       state = state.copyWith(
         isLoading: false,
-        error: result.error?.toString() ?? 'Unknown error',
+        error: result.failureData?.toString() ?? 'Unknown error',
       );
     }
   }
@@ -123,7 +123,7 @@ class TransactionsNotifier extends StateNotifier<TransactionsState> {
     } else {
       state = state.copyWith(
         isLoading: false,
-        error: result.error?.toString() ?? 'Unknown error',
+        error: result.failureData?.toString() ?? 'Unknown error',
       );
     }
   }

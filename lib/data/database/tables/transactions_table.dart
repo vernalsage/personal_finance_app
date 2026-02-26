@@ -12,13 +12,17 @@ class Transactions extends Table {
 
   IntColumn get id => integer().autoIncrement()();
   
-  IntColumn get profileId => integer().references(Profiles, #id, onDelete: KeyAction.cascade)();
+  IntColumn get profileId => integer()
+      .references(Profiles, #id, onDelete: KeyAction.cascade)();
   
-  IntColumn get accountId => integer().references(Accounts, #id, onDelete: KeyAction.restrict)();
+  IntColumn get accountId => integer()
+      .references(Accounts, #id, onDelete: KeyAction.restrict)();
   
-  IntColumn get categoryId => integer().references(Categories, #id, onDelete: KeyAction.restrict)();
+  IntColumn get categoryId => integer()
+      .references(Categories, #id, onDelete: KeyAction.restrict)();
   
-  IntColumn get merchantId => integer().references(Merchants, #id, onDelete: KeyAction.setNull)();
+  IntColumn get merchantId => integer()
+      .references(Merchants, #id, onDelete: KeyAction.setNull)();
   
   IntColumn get amountMinor => integer()(); // CRITICAL: Integer minor units only (Kobo)
   
@@ -35,10 +39,4 @@ class Transactions extends Table {
   TextColumn get transferId => text().withLength(min: 1, max: 50).nullable()(); // UUID for transfer pairs
   
   TextColumn get note => text().withLength(max: 500).nullable()();
-  
-  // Indexes for performance
-  @override
-  List<Set<Column>> get uniqueKeys => [
-    {transferId}, // Ensure transferId is unique within non-null values
-  ];
 }

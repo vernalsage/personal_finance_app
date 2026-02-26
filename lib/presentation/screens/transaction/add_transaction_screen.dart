@@ -270,7 +270,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Error: ${result.error}'),
+              content: Text('Error: ${result.failureData?.toString()}'),
               backgroundColor: Colors.red,
             ),
           );

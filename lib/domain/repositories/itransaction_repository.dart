@@ -2,53 +2,91 @@ import '../entities/transaction.dart';
 import '../entities/account.dart';
 import '../entities/category.dart';
 import '../entities/merchant.dart';
-import '../repositories/transaction_repository.dart';
+import '../core/result.dart';
 
 /// Abstract repository interface for Transaction operations
 abstract class ITransactionRepository {
   /// Create a new transaction
-  Future<Result<Transaction>> createTransaction(Transaction transaction);
+  Future<Result<Transaction, Exception>> createTransaction(Transaction transaction);
 
   /// Get a transaction by ID
-  Future<Result<Transaction?>> getTransactionById(int id);
+  Future<Result<Transaction?, Exception>> getTransactionById(int id);
 
   /// Get all transactions for a profile
-  Future<Result<List<Transaction>>> getTransactionsByProfile(int profileId);
+  Future<Result<List<Transaction>, Exception>> getTransactionsByProfile(int profileId);
+
+  /// Get transactions for a profile with optional filters
+  Future<Result<List<Transaction>, Exception>> getTransactions({
+    required int profileId,
+    int? accountId,
+    int? categoryId,
+    int? merchantId,
+    DateTime? startDate,
+    DateTime? endDate,
+    String? type,
+    bool? requiresReview,
+    int? limit,
+    int? offset,
+  });
 
   /// Get transactions for a specific account
-  Future<Result<List<Transaction>>> getTransactionsByAccount(int accountId);
-
-  /// Get transactions by date range
-  Future<Result<List<Transaction>>> getTransactionsByDateRange(
+  Future<Result<List<Transaction>, Exception>> getTransactionsByAccount(
     int profileId,
-    DateTime startDate,
-    DateTime endDate,
-  );
+    int accountId, {
+    DateTime? startDate,
+    DateTime? endDate,
+    int? limit,
+    int? offset,
+  });
 
   /// Get transactions requiring review
-  Future<Result<List<Transaction>>> getTransactionsRequiringReview(
+  Future<Result<List<Transaction>, Exception>> getTransactionsRequiringReview(
+    int profileId, {
+    int? limit,
+    int? offset,
+  });
+
+  /// Create a transfer (atomic operation creating two linked transactions)
+  Future<Result<List<Transaction>, Exception>> createTransfer({
+    required int profileId,
+    required int fromAccountId,
+    required int toAccountId,
+    required int amountMinor,
+    required String description,
+    required DateTime timestamp,
+    String? note,
+  });
+
+  /// Get transactions by transfer ID
+  Future<Result<List<Transaction>, Exception>> getTransactionsByTransferId(
     int profileId,
+    String transferId,
   );
 
-  /// Get transfers for a profile
-  Future<Result<List<Transaction>>> getTransfers(int profileId);
-
   /// Update an existing transaction
-  Future<Result<Transaction>> updateTransaction(Transaction transaction);
+  Future<Result<Transaction, Exception>> updateTransaction(Transaction transaction);
 
   /// Delete a transaction by ID
-  Future<Result<void>> deleteTransaction(int id);
+  Future<Result<void, Exception>> deleteTransaction(int id);
 
   /// Get total amount by transaction type
-  Future<Result<int>> getTotalAmountByType(
+  Future<Result<int, Exception>> getTotalAmountByType(
     int profileId,
     String type, {
+    int? categoryId,
+    DateTime? startDate,
+    DateTime? endDate,
+  });
+
+  /// Get transaction statistics for a profile
+  Future<Result<TransactionStats, Exception>> getTransactionStats(
+    int profileId, {
     DateTime? startDate,
     DateTime? endDate,
   });
 
   /// Get transactions with joined details (account, category, merchant)
-  Future<Result<List<TransactionWithJoinedDetails>>>
+  Future<Result<List<TransactionWithJoinedDetails>, Exception>>
   getTransactionsWithDetails({
     int? profileId,
     int? accountId,
@@ -73,4 +111,21 @@ class TransactionWithJoinedDetails {
   final Account account;
   final Category? category;
   final Merchant? merchant;
+}
+
+/// Transaction statistics for reports
+class TransactionStats {
+  const TransactionStats({
+    required this.totalIncome,
+    required this.totalExpenses,
+    required this.netIncome,
+    required this.transactionCount,
+    required this.averageTransactionAmount,
+  });
+
+  final int totalIncome;
+  final int totalExpenses;
+  final int netIncome;
+  final int transactionCount;
+  final double averageTransactionAmount;
 }

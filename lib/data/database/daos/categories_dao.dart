@@ -37,4 +37,8 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
       categories,
     )..where((c) => c.profileId.equals(profileId) & c.parentId.isNull())).get();
   }
+
+  Future<List<Category>> getSystemCategories() {
+    return (select(categories)..where((c) => c.profileId.equals(1))).get();
+  }
 }

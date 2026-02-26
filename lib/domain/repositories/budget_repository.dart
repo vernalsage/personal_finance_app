@@ -1,22 +1,22 @@
 import '../entities/budget.dart';
-import '../repositories/transaction_repository.dart';
+import '../core/result.dart';
 
 /// Repository interface for budget operations
 abstract class BudgetRepository {
   /// Create a new budget
-  Future<Result<Budget>> createBudget(Budget budget);
+  Future<Result<Budget, Exception>> createBudget(Budget budget);
 
   /// Update an existing budget
-  Future<Result<Budget>> updateBudget(Budget budget);
+  Future<Result<Budget, Exception>> updateBudget(Budget budget);
 
   /// Delete a budget
-  Future<Result<void>> deleteBudget(int budgetId);
+  Future<Result<void, Exception>> deleteBudget(int budgetId);
 
   /// Get budget by ID
-  Future<Result<Budget?>> getBudgetById(int budgetId);
+  Future<Result<Budget?, Exception>> getBudgetById(int budgetId);
 
   /// Get budgets for a profile
-  Future<Result<List<Budget>>> getBudgets(
+  Future<Result<List<Budget>, Exception>> getBudgets(
     int profileId, {
     int? month,
     int? year,
@@ -24,7 +24,7 @@ abstract class BudgetRepository {
   });
 
   /// Get budget for specific month, year, and category
-  Future<Result<Budget?>> getBudgetForPeriod(
+  Future<Result<Budget?, Exception>> getBudgetForPeriod(
     int profileId,
     int categoryId,
     int month,
@@ -32,29 +32,11 @@ abstract class BudgetRepository {
   );
 
   /// Get current month budgets for a profile
-  Future<Result<List<Budget>>> getCurrentMonthBudgets(int profileId);
+  Future<Result<List<Budget>, Exception>> getCurrentMonthBudgets(int profileId);
 
   /// Get budget usage statistics
-  Future<Result<BudgetUsage>> getBudgetUsage(
+  Future<Result<BudgetUsage, Exception>> getBudgetUsage(
     int budgetId,
   );
 }
 
-/// Budget usage information
-class BudgetUsage {
-  const BudgetUsage({
-    required this.budgetAmountMinor,
-    required this.spentAmountMinor,
-    required this.remainingAmountMinor,
-    required this.usagePercentage,
-    required this.isOverBudget,
-    required this.isNearLimit,
-  });
-
-  final int budgetAmountMinor;
-  final int spentAmountMinor;
-  final int remainingAmountMinor;
-  final double usagePercentage;
-  final bool isOverBudget;
-  final bool isNearLimit;
-}

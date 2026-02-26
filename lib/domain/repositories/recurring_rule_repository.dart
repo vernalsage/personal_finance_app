@@ -1,23 +1,23 @@
 import '../entities/recurring_rule.dart';
-import '../repositories/transaction_repository.dart';
 import '../../data/models/recurring_rule_model.dart';
+import '../core/result.dart';
 
 /// Repository interface for recurring rule operations
 abstract class RecurringRuleRepository {
   /// Create a new recurring rule
-  Future<Result<RecurringRule>> createRecurringRule(RecurringRule rule);
+  Future<Result<RecurringRule, Exception>> createRecurringRule(RecurringRule rule);
 
   /// Update an existing recurring rule
-  Future<Result<RecurringRule>> updateRecurringRule(RecurringRule rule);
+  Future<Result<RecurringRule, Exception>> updateRecurringRule(RecurringRule rule);
 
   /// Delete a recurring rule
-  Future<Result<void>> deleteRecurringRule(int ruleId);
+  Future<Result<void, Exception>> deleteRecurringRule(int ruleId);
 
   /// Get recurring rule by ID
-  Future<Result<RecurringRule?>> getRecurringRuleById(int ruleId);
+  Future<Result<RecurringRule?, Exception>> getRecurringRuleById(int ruleId);
 
   /// Get recurring rules for a profile
-  Future<Result<List<RecurringRule>>> getRecurringRules(
+  Future<Result<List<RecurringRule>, Exception>> getRecurringRules(
     int profileId, {
     bool? isActive,
     RecurringType? type,
@@ -25,16 +25,16 @@ abstract class RecurringRuleRepository {
   });
 
   /// Get recurring rules due for execution
-  Future<Result<List<RecurringRule>>> getDueRecurringRules(int profileId);
+  Future<Result<List<RecurringRule>, Exception>> getDueRecurringRules(int profileId);
 
   /// Update next execution date for a rule
-  Future<Result<RecurringRule>> updateNextExecutionDate(
+  Future<Result<RecurringRule, Exception>> updateNextExecutionDate(
     int ruleId,
     DateTime nextExecutionDate,
   );
 
   /// Update last executed date for a rule
-  Future<Result<RecurringRule>> updateLastExecutedDate(
+  Future<Result<RecurringRule, Exception>> updateLastExecutedDate(
     int ruleId,
     DateTime lastExecutedDate,
   );

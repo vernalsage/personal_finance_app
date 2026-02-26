@@ -12,7 +12,8 @@ class RecurringRules extends Table {
 
   IntColumn get id => integer().autoIncrement()();
   
-  IntColumn get profileId => integer().references(Profiles, #id, onDelete: KeyAction.cascade)();
+  IntColumn get profileId => integer()
+      .references(Profiles, #id, onDelete: KeyAction.cascade)();
   
   TextColumn get name => text().withLength(min: 1, max: 100)();
   

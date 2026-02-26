@@ -1,14 +1,28 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core_providers.dart';
-import '../../domain/repositories/iaccount_repository.dart';
+import '../../domain/repositories/account_repository.dart';
 import '../../domain/repositories/itransaction_repository.dart';
 import '../../domain/repositories/merchant_repository.dart';
+import '../../domain/repositories/category_repository.dart';
+import '../../domain/repositories/budget_repository.dart';
+import '../../domain/repositories/goal_repository.dart';
+import '../../domain/repositories/recurring_rule_repository.dart';
+import '../../domain/repositories/tag_repository.dart';
+import '../../domain/repositories/profile_repository.dart';
 import '../../data/repositories/account_repository_impl.dart';
 import '../../data/repositories/transaction_repository_impl.dart';
 import '../../data/repositories/merchant_repository_impl.dart';
+import '../../data/repositories/category_repository_impl.dart';
+import '../../data/repositories/budget_repository_impl.dart';
+import '../../data/repositories/goal_repository_impl.dart';
+import '../../data/repositories/recurring_rule_repository_impl.dart';
+import '../../data/repositories/tag_repository_impl.dart';
+
+// Note: ProfileRepositoryImpl not yet implemented, using a placeholder if needed
+// or we can implement it quickly.
 
 /// Provider for Account Repository
-final accountRepositoryProvider = Provider<IAccountRepository>((ref) {
+final accountRepositoryProvider = Provider<AccountRepository>((ref) {
   return AccountRepositoryImpl(ref.watch(accountsDaoProvider));
 });
 
@@ -20,4 +34,32 @@ final transactionRepositoryProvider = Provider<ITransactionRepository>((ref) {
 /// Provider for Merchant Repository
 final merchantRepositoryProvider = Provider<MerchantRepository>((ref) {
   return MerchantRepositoryImpl(ref.watch(merchantsDaoProvider));
+});
+
+/// Provider for Category Repository
+final categoryRepositoryProvider = Provider<CategoryRepository>((ref) {
+  return CategoryRepositoryImpl(ref.watch(categoriesDaoProvider));
+});
+
+/// Provider for Budget Repository
+final budgetRepositoryProvider = Provider<BudgetRepository>((ref) {
+  return BudgetRepositoryImpl(
+    ref.watch(budgetsDaoProvider),
+    ref.watch(transactionRepositoryProvider),
+  );
+});
+
+/// Provider for Goal Repository
+final goalRepositoryProvider = Provider<GoalRepository>((ref) {
+  return GoalRepositoryImpl(ref.watch(goalsDaoProvider));
+});
+
+/// Provider for Recurring Rule Repository
+final recurringRuleRepositoryProvider = Provider<RecurringRuleRepository>((ref) {
+  return RecurringRuleRepositoryImpl(ref.watch(recurringRulesDaoProvider));
+});
+
+/// Provider for Tag Repository
+final tagRepositoryProvider = Provider<TagRepository>((ref) {
+  return TagRepositoryImpl(ref.watch(tagsDaoProvider));
 });

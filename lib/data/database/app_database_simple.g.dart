@@ -2479,10 +2479,6 @@ class $TransactionsTable extends Transactions
   @override
   Set<GeneratedColumn> get $primaryKey => {id};
   @override
-  List<Set<GeneratedColumn>> get uniqueKeys => [
-    {transferId},
-  ];
-  @override
   Transaction map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
     return Transaction(
@@ -5216,6 +5212,233 @@ class TransactionTagsCompanion extends UpdateCompanion<TransactionTag> {
   }
 }
 
+class $TransactionGoalsTable extends TransactionGoals
+    with TableInfo<$TransactionGoalsTable, TransactionGoal> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $TransactionGoalsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _transactionIdMeta = const VerificationMeta(
+    'transactionId',
+  );
+  @override
+  late final GeneratedColumn<int> transactionId = GeneratedColumn<int>(
+    'transaction_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES transactions (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _goalIdMeta = const VerificationMeta('goalId');
+  @override
+  late final GeneratedColumn<int> goalId = GeneratedColumn<int>(
+    'goal_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES goals (id) ON DELETE CASCADE',
+    ),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [transactionId, goalId];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'transaction_goals';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<TransactionGoal> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('transaction_id')) {
+      context.handle(
+        _transactionIdMeta,
+        transactionId.isAcceptableOrUnknown(
+          data['transaction_id']!,
+          _transactionIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_transactionIdMeta);
+    }
+    if (data.containsKey('goal_id')) {
+      context.handle(
+        _goalIdMeta,
+        goalId.isAcceptableOrUnknown(data['goal_id']!, _goalIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_goalIdMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {transactionId, goalId};
+  @override
+  TransactionGoal map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return TransactionGoal(
+      transactionId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}transaction_id'],
+      )!,
+      goalId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}goal_id'],
+      )!,
+    );
+  }
+
+  @override
+  $TransactionGoalsTable createAlias(String alias) {
+    return $TransactionGoalsTable(attachedDatabase, alias);
+  }
+}
+
+class TransactionGoal extends DataClass implements Insertable<TransactionGoal> {
+  final int transactionId;
+  final int goalId;
+  const TransactionGoal({required this.transactionId, required this.goalId});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['transaction_id'] = Variable<int>(transactionId);
+    map['goal_id'] = Variable<int>(goalId);
+    return map;
+  }
+
+  TransactionGoalsCompanion toCompanion(bool nullToAbsent) {
+    return TransactionGoalsCompanion(
+      transactionId: Value(transactionId),
+      goalId: Value(goalId),
+    );
+  }
+
+  factory TransactionGoal.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return TransactionGoal(
+      transactionId: serializer.fromJson<int>(json['transactionId']),
+      goalId: serializer.fromJson<int>(json['goalId']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'transactionId': serializer.toJson<int>(transactionId),
+      'goalId': serializer.toJson<int>(goalId),
+    };
+  }
+
+  TransactionGoal copyWith({int? transactionId, int? goalId}) =>
+      TransactionGoal(
+        transactionId: transactionId ?? this.transactionId,
+        goalId: goalId ?? this.goalId,
+      );
+  TransactionGoal copyWithCompanion(TransactionGoalsCompanion data) {
+    return TransactionGoal(
+      transactionId: data.transactionId.present
+          ? data.transactionId.value
+          : this.transactionId,
+      goalId: data.goalId.present ? data.goalId.value : this.goalId,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('TransactionGoal(')
+          ..write('transactionId: $transactionId, ')
+          ..write('goalId: $goalId')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(transactionId, goalId);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is TransactionGoal &&
+          other.transactionId == this.transactionId &&
+          other.goalId == this.goalId);
+}
+
+class TransactionGoalsCompanion extends UpdateCompanion<TransactionGoal> {
+  final Value<int> transactionId;
+  final Value<int> goalId;
+  final Value<int> rowid;
+  const TransactionGoalsCompanion({
+    this.transactionId = const Value.absent(),
+    this.goalId = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  TransactionGoalsCompanion.insert({
+    required int transactionId,
+    required int goalId,
+    this.rowid = const Value.absent(),
+  }) : transactionId = Value(transactionId),
+       goalId = Value(goalId);
+  static Insertable<TransactionGoal> custom({
+    Expression<int>? transactionId,
+    Expression<int>? goalId,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (transactionId != null) 'transaction_id': transactionId,
+      if (goalId != null) 'goal_id': goalId,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  TransactionGoalsCompanion copyWith({
+    Value<int>? transactionId,
+    Value<int>? goalId,
+    Value<int>? rowid,
+  }) {
+    return TransactionGoalsCompanion(
+      transactionId: transactionId ?? this.transactionId,
+      goalId: goalId ?? this.goalId,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (transactionId.present) {
+      map['transaction_id'] = Variable<int>(transactionId.value);
+    }
+    if (goalId.present) {
+      map['goal_id'] = Variable<int>(goalId.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('TransactionGoalsCompanion(')
+          ..write('transactionId: $transactionId, ')
+          ..write('goalId: $goalId, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -5229,6 +5452,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $RecurringRulesTable recurringRules = $RecurringRulesTable(this);
   late final $GoalsTable goals = $GoalsTable(this);
   late final $TransactionTagsTable transactionTags = $TransactionTagsTable(
+    this,
+  );
+  late final $TransactionGoalsTable transactionGoals = $TransactionGoalsTable(
     this,
   );
   @override
@@ -5246,6 +5472,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     recurringRules,
     goals,
     transactionTags,
+    transactionGoals,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -5367,6 +5594,20 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         limitUpdateKind: UpdateKind.delete,
       ),
       result: [TableUpdate('transaction_tags', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'transactions',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('transaction_goals', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'goals',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('transaction_goals', kind: UpdateKind.delete)],
     ),
   ]);
 }
@@ -8910,6 +9151,29 @@ final class $$TransactionsTableReferences
       manager.$state.copyWith(prefetchedData: cache),
     );
   }
+
+  static MultiTypedResultKey<$TransactionGoalsTable, List<TransactionGoal>>
+  _transactionGoalsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.transactionGoals,
+    aliasName: $_aliasNameGenerator(
+      db.transactions.id,
+      db.transactionGoals.transactionId,
+    ),
+  );
+
+  $$TransactionGoalsTableProcessedTableManager get transactionGoalsRefs {
+    final manager = $$TransactionGoalsTableTableManager(
+      $_db,
+      $_db.transactionGoals,
+    ).filter((f) => f.transactionId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _transactionGoalsRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 }
 
 class $$TransactionsTableFilterComposer
@@ -9074,6 +9338,31 @@ class $$TransactionsTableFilterComposer
           }) => $$TransactionTagsTableFilterComposer(
             $db: $db,
             $table: $db.transactionTags,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> transactionGoalsRefs(
+    Expression<bool> Function($$TransactionGoalsTableFilterComposer f) f,
+  ) {
+    final $$TransactionGoalsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.transactionGoals,
+      getReferencedColumn: (t) => t.transactionId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TransactionGoalsTableFilterComposer(
+            $db: $db,
+            $table: $db.transactionGoals,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -9393,6 +9682,31 @@ class $$TransactionsTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> transactionGoalsRefs<T extends Object>(
+    Expression<T> Function($$TransactionGoalsTableAnnotationComposer a) f,
+  ) {
+    final $$TransactionGoalsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.transactionGoals,
+      getReferencedColumn: (t) => t.transactionId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TransactionGoalsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.transactionGoals,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$TransactionsTableTableManager
@@ -9414,6 +9728,7 @@ class $$TransactionsTableTableManager
             bool categoryId,
             bool merchantId,
             bool transactionTagsRefs,
+            bool transactionGoalsRefs,
           })
         > {
   $$TransactionsTableTableManager(_$AppDatabase db, $TransactionsTable table)
@@ -9502,11 +9817,13 @@ class $$TransactionsTableTableManager
                 categoryId = false,
                 merchantId = false,
                 transactionTagsRefs = false,
+                transactionGoalsRefs = false,
               }) {
                 return PrefetchHooks(
                   db: db,
                   explicitlyWatchedTables: [
                     if (transactionTagsRefs) db.transactionTags,
+                    if (transactionGoalsRefs) db.transactionGoals,
                   ],
                   addJoins:
                       <
@@ -9610,6 +9927,27 @@ class $$TransactionsTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (transactionGoalsRefs)
+                        await $_getPrefetchedData<
+                          Transaction,
+                          $TransactionsTable,
+                          TransactionGoal
+                        >(
+                          currentTable: table,
+                          referencedTable: $$TransactionsTableReferences
+                              ._transactionGoalsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$TransactionsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).transactionGoalsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.transactionId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -9636,6 +9974,7 @@ typedef $$TransactionsTableProcessedTableManager =
         bool categoryId,
         bool merchantId,
         bool transactionTagsRefs,
+        bool transactionGoalsRefs,
       })
     >;
 typedef $$BudgetsTableCreateCompanionBuilder =
@@ -10948,6 +11287,26 @@ final class $$GoalsTableReferences
       manager.$state.copyWith(prefetchedData: [item]),
     );
   }
+
+  static MultiTypedResultKey<$TransactionGoalsTable, List<TransactionGoal>>
+  _transactionGoalsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.transactionGoals,
+    aliasName: $_aliasNameGenerator(db.goals.id, db.transactionGoals.goalId),
+  );
+
+  $$TransactionGoalsTableProcessedTableManager get transactionGoalsRefs {
+    final manager = $$TransactionGoalsTableTableManager(
+      $_db,
+      $_db.transactionGoals,
+    ).filter((f) => f.goalId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _transactionGoalsRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 }
 
 class $$GoalsTableFilterComposer extends Composer<_$AppDatabase, $GoalsTable> {
@@ -11024,6 +11383,31 @@ class $$GoalsTableFilterComposer extends Composer<_$AppDatabase, $GoalsTable> {
           ),
     );
     return composer;
+  }
+
+  Expression<bool> transactionGoalsRefs(
+    Expression<bool> Function($$TransactionGoalsTableFilterComposer f) f,
+  ) {
+    final $$TransactionGoalsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.transactionGoals,
+      getReferencedColumn: (t) => t.goalId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TransactionGoalsTableFilterComposer(
+            $db: $db,
+            $table: $db.transactionGoals,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
   }
 }
 
@@ -11171,6 +11555,31 @@ class $$GoalsTableAnnotationComposer
     );
     return composer;
   }
+
+  Expression<T> transactionGoalsRefs<T extends Object>(
+    Expression<T> Function($$TransactionGoalsTableAnnotationComposer a) f,
+  ) {
+    final $$TransactionGoalsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.transactionGoals,
+      getReferencedColumn: (t) => t.goalId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TransactionGoalsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.transactionGoals,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$GoalsTableTableManager
@@ -11186,7 +11595,7 @@ class $$GoalsTableTableManager
           $$GoalsTableUpdateCompanionBuilder,
           (Goal, $$GoalsTableReferences),
           Goal,
-          PrefetchHooks Function({bool profileId})
+          PrefetchHooks Function({bool profileId, bool transactionGoalsRefs})
         > {
   $$GoalsTableTableManager(_$AppDatabase db, $GoalsTable table)
     : super(
@@ -11253,47 +11662,72 @@ class $$GoalsTableTableManager
                     (e.readTable(table), $$GoalsTableReferences(db, table, e)),
               )
               .toList(),
-          prefetchHooksCallback: ({profileId = false}) {
-            return PrefetchHooks(
-              db: db,
-              explicitlyWatchedTables: [],
-              addJoins:
-                  <
-                    T extends TableManagerState<
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic
-                    >
-                  >(state) {
-                    if (profileId) {
-                      state =
-                          state.withJoin(
-                                currentTable: table,
-                                currentColumn: table.profileId,
-                                referencedTable: $$GoalsTableReferences
-                                    ._profileIdTable(db),
-                                referencedColumn: $$GoalsTableReferences
-                                    ._profileIdTable(db)
-                                    .id,
-                              )
-                              as T;
-                    }
+          prefetchHooksCallback:
+              ({profileId = false, transactionGoalsRefs = false}) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [
+                    if (transactionGoalsRefs) db.transactionGoals,
+                  ],
+                  addJoins:
+                      <
+                        T extends TableManagerState<
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic
+                        >
+                      >(state) {
+                        if (profileId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.profileId,
+                                    referencedTable: $$GoalsTableReferences
+                                        ._profileIdTable(db),
+                                    referencedColumn: $$GoalsTableReferences
+                                        ._profileIdTable(db)
+                                        .id,
+                                  )
+                                  as T;
+                        }
 
-                    return state;
+                        return state;
+                      },
+                  getPrefetchedDataCallback: (items) async {
+                    return [
+                      if (transactionGoalsRefs)
+                        await $_getPrefetchedData<
+                          Goal,
+                          $GoalsTable,
+                          TransactionGoal
+                        >(
+                          currentTable: table,
+                          referencedTable: $$GoalsTableReferences
+                              ._transactionGoalsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$GoalsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).transactionGoalsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.goalId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                    ];
                   },
-              getPrefetchedDataCallback: (items) async {
-                return [];
+                );
               },
-            );
-          },
         ),
       );
 }
@@ -11310,7 +11744,7 @@ typedef $$GoalsTableProcessedTableManager =
       $$GoalsTableUpdateCompanionBuilder,
       (Goal, $$GoalsTableReferences),
       Goal,
-      PrefetchHooks Function({bool profileId})
+      PrefetchHooks Function({bool profileId, bool transactionGoalsRefs})
     >;
 typedef $$TransactionTagsTableCreateCompanionBuilder =
     TransactionTagsCompanion Function({
@@ -11675,6 +12109,369 @@ typedef $$TransactionTagsTableProcessedTableManager =
       TransactionTag,
       PrefetchHooks Function({bool transactionId, bool tagId})
     >;
+typedef $$TransactionGoalsTableCreateCompanionBuilder =
+    TransactionGoalsCompanion Function({
+      required int transactionId,
+      required int goalId,
+      Value<int> rowid,
+    });
+typedef $$TransactionGoalsTableUpdateCompanionBuilder =
+    TransactionGoalsCompanion Function({
+      Value<int> transactionId,
+      Value<int> goalId,
+      Value<int> rowid,
+    });
+
+final class $$TransactionGoalsTableReferences
+    extends
+        BaseReferences<_$AppDatabase, $TransactionGoalsTable, TransactionGoal> {
+  $$TransactionGoalsTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $TransactionsTable _transactionIdTable(_$AppDatabase db) =>
+      db.transactions.createAlias(
+        $_aliasNameGenerator(
+          db.transactionGoals.transactionId,
+          db.transactions.id,
+        ),
+      );
+
+  $$TransactionsTableProcessedTableManager get transactionId {
+    final $_column = $_itemColumn<int>('transaction_id')!;
+
+    final manager = $$TransactionsTableTableManager(
+      $_db,
+      $_db.transactions,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_transactionIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $GoalsTable _goalIdTable(_$AppDatabase db) => db.goals.createAlias(
+    $_aliasNameGenerator(db.transactionGoals.goalId, db.goals.id),
+  );
+
+  $$GoalsTableProcessedTableManager get goalId {
+    final $_column = $_itemColumn<int>('goal_id')!;
+
+    final manager = $$GoalsTableTableManager(
+      $_db,
+      $_db.goals,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_goalIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$TransactionGoalsTableFilterComposer
+    extends Composer<_$AppDatabase, $TransactionGoalsTable> {
+  $$TransactionGoalsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  $$TransactionsTableFilterComposer get transactionId {
+    final $$TransactionsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.transactionId,
+      referencedTable: $db.transactions,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TransactionsTableFilterComposer(
+            $db: $db,
+            $table: $db.transactions,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$GoalsTableFilterComposer get goalId {
+    final $$GoalsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.goalId,
+      referencedTable: $db.goals,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$GoalsTableFilterComposer(
+            $db: $db,
+            $table: $db.goals,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$TransactionGoalsTableOrderingComposer
+    extends Composer<_$AppDatabase, $TransactionGoalsTable> {
+  $$TransactionGoalsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  $$TransactionsTableOrderingComposer get transactionId {
+    final $$TransactionsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.transactionId,
+      referencedTable: $db.transactions,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TransactionsTableOrderingComposer(
+            $db: $db,
+            $table: $db.transactions,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$GoalsTableOrderingComposer get goalId {
+    final $$GoalsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.goalId,
+      referencedTable: $db.goals,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$GoalsTableOrderingComposer(
+            $db: $db,
+            $table: $db.goals,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$TransactionGoalsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $TransactionGoalsTable> {
+  $$TransactionGoalsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  $$TransactionsTableAnnotationComposer get transactionId {
+    final $$TransactionsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.transactionId,
+      referencedTable: $db.transactions,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TransactionsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.transactions,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$GoalsTableAnnotationComposer get goalId {
+    final $$GoalsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.goalId,
+      referencedTable: $db.goals,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$GoalsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.goals,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$TransactionGoalsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $TransactionGoalsTable,
+          TransactionGoal,
+          $$TransactionGoalsTableFilterComposer,
+          $$TransactionGoalsTableOrderingComposer,
+          $$TransactionGoalsTableAnnotationComposer,
+          $$TransactionGoalsTableCreateCompanionBuilder,
+          $$TransactionGoalsTableUpdateCompanionBuilder,
+          (TransactionGoal, $$TransactionGoalsTableReferences),
+          TransactionGoal,
+          PrefetchHooks Function({bool transactionId, bool goalId})
+        > {
+  $$TransactionGoalsTableTableManager(
+    _$AppDatabase db,
+    $TransactionGoalsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$TransactionGoalsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$TransactionGoalsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$TransactionGoalsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> transactionId = const Value.absent(),
+                Value<int> goalId = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => TransactionGoalsCompanion(
+                transactionId: transactionId,
+                goalId: goalId,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required int transactionId,
+                required int goalId,
+                Value<int> rowid = const Value.absent(),
+              }) => TransactionGoalsCompanion.insert(
+                transactionId: transactionId,
+                goalId: goalId,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$TransactionGoalsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({transactionId = false, goalId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (transactionId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.transactionId,
+                                referencedTable:
+                                    $$TransactionGoalsTableReferences
+                                        ._transactionIdTable(db),
+                                referencedColumn:
+                                    $$TransactionGoalsTableReferences
+                                        ._transactionIdTable(db)
+                                        .id,
+                              )
+                              as T;
+                    }
+                    if (goalId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.goalId,
+                                referencedTable:
+                                    $$TransactionGoalsTableReferences
+                                        ._goalIdTable(db),
+                                referencedColumn:
+                                    $$TransactionGoalsTableReferences
+                                        ._goalIdTable(db)
+                                        .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$TransactionGoalsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $TransactionGoalsTable,
+      TransactionGoal,
+      $$TransactionGoalsTableFilterComposer,
+      $$TransactionGoalsTableOrderingComposer,
+      $$TransactionGoalsTableAnnotationComposer,
+      $$TransactionGoalsTableCreateCompanionBuilder,
+      $$TransactionGoalsTableUpdateCompanionBuilder,
+      (TransactionGoal, $$TransactionGoalsTableReferences),
+      TransactionGoal,
+      PrefetchHooks Function({bool transactionId, bool goalId})
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -11698,4 +12495,6 @@ class $AppDatabaseManager {
       $$GoalsTableTableManager(_db, _db.goals);
   $$TransactionTagsTableTableManager get transactionTags =>
       $$TransactionTagsTableTableManager(_db, _db.transactionTags);
+  $$TransactionGoalsTableTableManager get transactionGoals =>
+      $$TransactionGoalsTableTableManager(_db, _db.transactionGoals);
 }

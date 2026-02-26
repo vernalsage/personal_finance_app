@@ -1,41 +1,35 @@
 import '../entities/tag.dart';
-import '../repositories/transaction_repository.dart';
+import '../core/result.dart';
 
 /// Repository interface for tag operations
 abstract class TagRepository {
   /// Create a new tag
-  Future<Result<Tag>> createTag(Tag tag);
+  Future<Result<Tag, Exception>> createTag(Tag tag);
 
   /// Update an existing tag
-  Future<Result<Tag>> updateTag(Tag tag);
+  Future<Result<Tag, Exception>> updateTag(Tag tag);
 
   /// Delete a tag
-  Future<Result<void>> deleteTag(int tagId);
+  Future<Result<void, Exception>> deleteTag(int tagId);
 
   /// Get tag by ID
-  Future<Result<Tag?>> getTagById(int tagId);
+  Future<Result<Tag?, Exception>> getTagById(int tagId);
 
   /// Get tags for a profile
-  Future<Result<List<Tag>>> getTags(
-    int profileId, {
-    bool? isActive,
-  });
+  Future<Result<List<Tag>, Exception>> getTags(int profileId);
 
-  /// Link tags to a transaction
-  Future<Result<void>> linkTagsToTransaction(
+  /// Link a tag to a transaction
+  Future<Result<void, Exception>> linkTagToTransaction(
     int transactionId,
-    List<int> tagIds,
+    int tagId,
   );
 
-  /// Unlink tags from a transaction
-  Future<Result<void>> unlinkTagsFromTransaction(
+  /// Unlink a tag from a transaction
+  Future<Result<void, Exception>> unlinkTagFromTransaction(
     int transactionId,
-    List<int> tagIds,
+    int tagId,
   );
 
   /// Get tags for a transaction
-  Future<Result<List<Tag>>> getTagsForTransaction(int transactionId);
-
-  /// Get transactions for a tag
-  Future<Result<List<int>>> getTransactionsForTag(int tagId);
+  Future<Result<List<Tag>, Exception>> getTagsForTransaction(int transactionId);
 }

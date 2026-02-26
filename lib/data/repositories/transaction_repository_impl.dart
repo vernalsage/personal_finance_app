@@ -4,7 +4,7 @@ import '../mappers/account_mapper.dart';
 import '../mappers/category_mapper.dart';
 import '../mappers/merchant_mapper.dart';
 import '../../domain/repositories/itransaction_repository.dart';
-import '../../domain/repositories/transaction_repository.dart';
+import '../../domain/core/result.dart';
 import '../../domain/entities/transaction.dart' as domain;
 
 /// Implementation of ITransactionRepository using Drift DAO
@@ -14,7 +14,7 @@ class TransactionRepositoryImpl implements ITransactionRepository {
   TransactionRepositoryImpl(this._transactionsDao);
 
   @override
-  Future<Result<domain.Transaction>> createTransaction(
+  Future<Result<domain.Transaction, Exception>> createTransaction(
     domain.Transaction transaction,
   ) async {
     try {
@@ -22,24 +22,24 @@ class TransactionRepositoryImpl implements ITransactionRepository {
       final createdTransaction = await _transactionsDao.createTransaction(
         companion,
       );
-      return Result.success(createdTransaction.toEntity());
+      return Success(createdTransaction.toEntity());
     } catch (e) {
-      return Result.failure('Failed to create transaction: $e');
+      return Failure(Exception('Failed to create transaction: $e'));
     }
   }
 
   @override
-  Future<Result<domain.Transaction?>> getTransactionById(int id) async {
+  Future<Result<domain.Transaction?, Exception>> getTransactionById(int id) async {
     try {
       final transaction = await _transactionsDao.getTransaction(id);
-      return Result.success(transaction?.toEntity());
+      return Success(transaction?.toEntity());
     } catch (e) {
-      return Result.failure('Failed to get transaction by ID: $e');
+      return Failure(Exception('Failed to get transaction by ID: $e'));
     }
   }
 
   @override
-  Future<Result<List<domain.Transaction>>> getTransactionsByProfile(
+  Future<Result<List<domain.Transaction>, Exception>> getTransactionsByProfile(
     int profileId,
   ) async {
     try {
@@ -49,81 +49,158 @@ class TransactionRepositoryImpl implements ITransactionRepository {
       final domainTransactions = transactions
           .map((transaction) => transaction.toEntity())
           .toList();
-      return Result.success(domainTransactions);
+      return Success(domainTransactions);
     } catch (e) {
-      return Result.failure('Failed to get transactions by profile: $e');
+      return Failure(Exception('Failed to get transactions by profile: $e'));
     }
   }
 
   @override
-  Future<Result<List<domain.Transaction>>> getTransactionsByAccount(
-    int accountId,
-  ) async {
+  Future<Result<List<domain.Transaction>, Exception>> getTransactions({
+    required int profileId,
+    int? accountId,
+    int? categoryId,
+    int? merchantId,
+    DateTime? startDate,
+    DateTime? endDate,
+    String? type,
+    bool? requiresReview,
+    int? limit,
+    int? offset,
+  }) async {
+    try {
+      final transactions = await _transactionsDao.getTransactionsWithDetails(
+        profileId: profileId,
+        accountId: accountId,
+        categoryId: categoryId,
+        type: type,
+        startDate: startDate,
+        endDate: endDate,
+        requiresReview: requiresReview,
+      );
+      final domainTransactions = transactions
+          .map((detail) => detail.transaction.toEntity())
+          .toList();
+      return Success(domainTransactions);
+    } catch (e) {
+      return Failure(Exception('Failed to get transactions: $e'));
+    }
+  }
+
+  @override
+  Future<Result<List<domain.Transaction>, Exception>> getTransactionsByAccount(
+    int profileId,
+    int accountId, {
+    DateTime? startDate,
+    DateTime? endDate,
+    int? limit,
+    int? offset,
+  }) async {
     try {
       final transactions = await _transactionsDao.getAllTransactions(
+        profileId: profileId,
         accountId: accountId,
       );
       final domainTransactions = transactions
           .map((transaction) => transaction.toEntity())
           .toList();
-      return Result.success(domainTransactions);
+      return Success(domainTransactions);
     } catch (e) {
-      return Result.failure('Failed to get transactions by account: $e');
+      return Failure(Exception('Failed to get transactions by account: $e'));
     }
   }
 
   @override
-  Future<Result<List<domain.Transaction>>> getTransactionsByDateRange(
-    int profileId,
-    DateTime startDate,
-    DateTime endDate,
-  ) async {
-    try {
-      final transactions = await _transactionsDao.getTransactionsByDateRange(
-        profileId,
-        startDate,
-        endDate,
-      );
-      final domainTransactions = transactions
-          .map((transaction) => transaction.toEntity())
-          .toList();
-      return Result.success(domainTransactions);
-    } catch (e) {
-      return Result.failure('Failed to get transactions by date range: $e');
-    }
-  }
-
-  @override
-  Future<Result<List<domain.Transaction>>> getTransactionsRequiringReview(
-    int profileId,
-  ) async {
+  Future<Result<List<domain.Transaction>, Exception>> getTransactionsRequiringReview(
+    int profileId, {
+    int? limit,
+    int? offset,
+  }) async {
     try {
       final transactions = await _transactionsDao
           .getTransactionsRequiringReview(profileId);
       final domainTransactions = transactions
           .map((transaction) => transaction.toEntity())
           .toList();
-      return Result.success(domainTransactions);
+      return Success(domainTransactions);
     } catch (e) {
-      return Result.failure('Failed to get transactions requiring review: $e');
+      return Failure(Exception('Failed to get transactions requiring review: $e'));
     }
   }
 
   @override
-  Future<Result<List<domain.Transaction>>> getTransfers(int profileId) async {
+  Future<Result<List<domain.Transaction>, Exception>> createTransfer({
+    required int profileId,
+    required int fromAccountId,
+    required int toAccountId,
+    required int amountMinor,
+    required String description,
+    required DateTime timestamp,
+    String? note,
+  }) async {
     try {
-      final transactions = await _transactionsDao.getTransfers(profileId);
-      final domainTransactions = transactions
-          .map((transaction) => transaction.toEntity())
-          .toList();
-      return Result.success(domainTransactions);
+      // For now, this is sequential. Phase 2 will make this atomic in the DAO.
+      final transferId = timestamp.millisecondsSinceEpoch.toString();
+
+      final outTransaction = domain.Transaction(
+        id: 0,
+        profileId: profileId,
+        accountId: fromAccountId,
+        categoryId: 1, // Default/Transfer category
+        merchantId: 1, // System merchant
+        amountMinor: -amountMinor,
+        type: 'transfer_out',
+        description: description,
+        timestamp: timestamp,
+        confidenceScore: 100,
+        requiresReview: false,
+        transferId: transferId,
+        note: note,
+      );
+
+      final inTransaction = domain.Transaction(
+        id: 0,
+        profileId: profileId,
+        accountId: toAccountId,
+        categoryId: 1,
+        merchantId: 1,
+        amountMinor: amountMinor,
+        type: 'transfer_in',
+        description: description,
+        timestamp: timestamp,
+        confidenceScore: 100,
+        requiresReview: false,
+        transferId: transferId,
+        note: note,
+      );
+
+      final results = await _transactionsDao.executeTransfer(
+        outEntry: outTransaction.toCompanion(),
+        inEntry: inTransaction.toCompanion(),
+      );
+
+      return Success(results.map((t) => t.toEntity()).toList());
     } catch (e) {
-      return Result.failure('Failed to get transfers: $e');
+      return Failure(Exception('Failed to create transfer: $e'));
     }
   }
 
   @override
-  Future<Result<domain.Transaction>> updateTransaction(
+  Future<Result<List<domain.Transaction>, Exception>> getTransactionsByTransferId(
+    int profileId,
+    String transferId,
+  ) async {
+    try {
+      final transactions = await _transactionsDao.getTransactionsByTransferId(
+          profileId, transferId);
+      return Success(transactions.map((t) => t.toEntity()).toList());
+    } catch (e) {
+      return Failure(Exception('Failed to get transactions by transfer ID: $e'));
+    }
+  }
+
+  @override
+  Future<Result<domain.Transaction, Exception>> updateTransaction(
     domain.Transaction transaction,
   ) async {
     try {
@@ -132,28 +209,29 @@ class TransactionRepositoryImpl implements ITransactionRepository {
         companion,
       );
       if (updatedTransaction == null) {
-        return Result.failure('Transaction not found for update');
+        return Failure(Exception('Transaction not found for update'));
       }
-      return Result.success(updatedTransaction.toEntity());
+      return Success(updatedTransaction.toEntity());
     } catch (e) {
-      return Result.failure('Failed to update transaction: $e');
+      return Failure(Exception('Failed to update transaction: $e'));
     }
   }
 
   @override
-  Future<Result<void>> deleteTransaction(int id) async {
+  Future<Result<void, Exception>> deleteTransaction(int id) async {
     try {
       await _transactionsDao.deleteTransaction(id);
-      return Result.success(null);
+      return Success(null);
     } catch (e) {
-      return Result.failure('Failed to delete transaction: $e');
+      return Failure(Exception('Failed to delete transaction: $e'));
     }
   }
 
   @override
-  Future<Result<int>> getTotalAmountByType(
+  Future<Result<int, Exception>> getTotalAmountByType(
     int profileId,
     String type, {
+    int? categoryId,
     DateTime? startDate,
     DateTime? endDate,
   }) async {
@@ -161,17 +239,56 @@ class TransactionRepositoryImpl implements ITransactionRepository {
       final total = await _transactionsDao.getTotalAmountByType(
         profileId,
         type,
+        categoryId: categoryId,
         startDate: startDate,
         endDate: endDate,
       );
-      return Result.success(total);
+      return Success(total);
     } catch (e) {
-      return Result.failure('Failed to get total amount by type: $e');
+      return Failure(Exception('Failed to get total amount by type: $e'));
     }
   }
 
   @override
-  Future<Result<List<TransactionWithJoinedDetails>>>
+  Future<Result<TransactionStats, Exception>> getTransactionStats(
+    int profileId, {
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
+    try {
+      final income = await _transactionsDao.getTotalAmountByType(
+        profileId,
+        'credit',
+        startDate: startDate,
+        endDate: endDate,
+      );
+      final expense = await _transactionsDao.getTotalAmountByType(
+        profileId,
+        'debit',
+        startDate: startDate,
+        endDate: endDate,
+      );
+
+      final count = await _transactionsDao.getTransactionCount(
+        profileId: profileId,
+        startDate: startDate,
+        endDate: endDate,
+      );
+
+      return Success(TransactionStats(
+        totalIncome: income,
+        totalExpenses: expense,
+        netIncome: income - expense,
+        transactionCount: count,
+        averageTransactionAmount: count > 0 ? (expense / count) : 0,
+      ));
+    } catch (e) {
+      return Failure(Exception('Failed to get transaction stats: $e'));
+    }
+  }
+
+  @override
+  Future<Result<List<TransactionWithJoinedDetails>, Exception>>
   getTransactionsWithDetails({
     int? profileId,
     int? accountId,
@@ -202,9 +319,9 @@ class TransactionRepositoryImpl implements ITransactionRepository {
         );
       }).toList();
 
-      return Result.success(result);
+      return Success(result);
     } catch (e) {
-      return Result.failure('Failed to get transactions with details: $e');
+      return Failure(Exception('Failed to get transactions with details: $e'));
     }
   }
 }

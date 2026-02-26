@@ -83,7 +83,7 @@ class NotificationPipelineService {
         );
         return true;
       } else {
-        _statusController.add('Failed to create transaction: ${result.error}');
+        _statusController.add('Failed to create transaction: ${result.failureData}');
         return false;
       }
     } catch (e) {

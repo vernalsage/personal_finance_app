@@ -1,5 +1,5 @@
-import '../repositories/transaction_repository.dart';
-import '../repositories/iaccount_repository.dart';
+import '../repositories/itransaction_repository.dart';
+import '../repositories/account_repository.dart';
 
 /// Use case for getting financial overview
 class GetFinancialOverviewUseCase {
@@ -8,10 +8,10 @@ class GetFinancialOverviewUseCase {
     this._accountRepository,
   );
 
-  final TransactionRepository _transactionRepository;
-  final IAccountRepository _accountRepository;
+  final ITransactionRepository _transactionRepository;
+  final AccountRepository _accountRepository;
 
-  Future<Result<FinancialOverview>> call(
+  Future<Result<FinancialOverview, Exception>> call(
     int profileId, {
     DateTime? startDate,
     DateTime? endDate,
@@ -22,7 +22,7 @@ class GetFinancialOverviewUseCase {
         .getTransactionStats(profileId, startDate: startDate, endDate: endDate);
 
     if (transactionStatsResult.isFailure) {
-      return Result.failure(transactionStatsResult.error!);
+      return Failure(Exception(transactionStatsResult.failureData!));
     }
 
     // Get total balance converted to target currency
@@ -30,13 +30,13 @@ class GetFinancialOverviewUseCase {
         .getTotalBalanceInCurrency(profileId, targetCurrency ?? 'NGN');
 
     if (totalBalanceResult.isFailure) {
-      return Result.failure(totalBalanceResult.failureData.toString());
+      return Failure(Exception(totalBalanceResult.failureData.toString()));
     }
 
-    final stats = transactionStatsResult.data!;
+    final stats = transactionStatsResult.successData!;
     final totalBalance = totalBalanceResult.successData!;
 
-    return Result.success(
+    return Success(
       FinancialOverview(
         totalIncome: stats.totalIncome,
         totalExpenses: stats.totalExpenses,
@@ -57,10 +57,10 @@ class CalculateCashRunwayUseCase {
     this._accountRepository,
   );
 
-  final TransactionRepository _transactionRepository;
+  final ITransactionRepository _transactionRepository;
   final IAccountRepository _accountRepository;
 
-  Future<Result<CashRunway>> call(
+  Future<Result<CashRunway, Exception>> call(
     int profileId, {
     String? targetCurrency = 'NGN',
   }) async {
@@ -73,7 +73,7 @@ class CalculateCashRunwayUseCase {
         );
 
     if (totalBalanceResult.isFailure) {
-      return Result.failure(totalBalanceResult.failureData.toString());
+      return Failure(Exception(totalBalanceResult.failureData.toString()));
     }
 
     // Get average monthly expenses from last 3 months
@@ -88,11 +88,11 @@ class CalculateCashRunwayUseCase {
         );
 
     if (transactionStatsResult.isFailure) {
-      return Result.failure(transactionStatsResult.error!);
+      return Failure(Exception(transactionStatsResult.failureData!));
     }
 
     final totalBalance = totalBalanceResult.successData!;
-    final stats = transactionStatsResult.data!;
+    final stats = transactionStatsResult.successData!;
 
     // Calculate average monthly expenses
     final averageMonthlyExpenses = stats.totalExpenses / 3;
@@ -103,7 +103,7 @@ class CalculateCashRunwayUseCase {
       runwayDays = (totalBalance / (averageMonthlyExpenses / 30)).round();
     }
 
-    return Result.success(
+    return Success(
       CashRunway(
         totalBalance: (totalBalance * 100)
             .round(), // Convert back to minor units for consistency

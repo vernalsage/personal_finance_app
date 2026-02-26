@@ -30,13 +30,22 @@ class RecurringRulesDao extends DatabaseAccessor<AppDatabase>
   Future<int> deleteRecurringRule(int id) =>
       (delete(recurringRules)..where((r) => r.id.equals(id))).go();
 
-  Future<List<RecurringRule>> getRulesDueForExecution(DateTime currentDate) {
+  Future<List<RecurringRule>> getDueRecurringRules(int profileId) {
     return (select(recurringRules)..where(
           (r) =>
+              r.profileId.equals(profileId) &
               r.isActive.equals(true) &
-              r.nextExecutionDate.isSmallerOrEqualValue(currentDate),
+              r.nextExecutionDate.isSmallerOrEqualValue(DateTime.now()),
         ))
         .get();
+  }
+
+  Future<void> updateNextExecutionDate(int ruleId, DateTime nextExecutionDate) {
+    return (update(recurringRules)..where((r) => r.id.equals(ruleId))).write(
+      RecurringRulesCompanion(
+        nextExecutionDate: Value(nextExecutionDate),
+      ),
+    );
   }
 
   Future<void> updateLastExecutedDate(int ruleId, DateTime executedDate) {

@@ -13,6 +13,7 @@ import 'tables/budgets_table.dart';
 import 'tables/recurring_rules_table.dart';
 import 'tables/goals_table.dart';
 import 'tables/transaction_tags_table.dart';
+import 'tables/transaction_goals_table.dart';
 
 part 'app_database_simple.g.dart';
 
@@ -29,6 +30,7 @@ part 'app_database_simple.g.dart';
     RecurringRules,
     Goals,
     TransactionTags,
+    TransactionGoals,
   ],
 )
 class AppDatabase extends _$AppDatabase {

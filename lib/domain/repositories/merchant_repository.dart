@@ -1,44 +1,37 @@
 import '../entities/merchant.dart';
-import '../repositories/transaction_repository.dart';
+import '../core/result.dart';
 
 /// Repository interface for merchant operations
 abstract class MerchantRepository {
-  /// Create a new merchant (or get existing one)
-  Future<Result<Merchant>> getOrCreateMerchant(
-    int profileId,
-    String name,
-    String normalizedName, {
-    int? categoryId,
-  });
+  /// Create a new merchant
+  Future<Result<Merchant, Exception>> createMerchant(Merchant merchant);
 
-  /// Update merchant
-  Future<Result<Merchant>> updateMerchant(Merchant merchant);
+  /// Update an existing merchant
+  Future<Result<Merchant, Exception>> updateMerchant(Merchant merchant);
 
-  /// Update merchant last seen timestamp
-  Future<Result<Merchant>> updateLastSeen(int merchantId);
+  /// Delete a merchant
+  Future<Result<void, Exception>> deleteMerchant(int merchantId);
 
   /// Get merchant by ID
-  Future<Result<Merchant?>> getMerchantById(int merchantId);
-
-  /// Get merchant by normalized name and profile
-  Future<Result<Merchant?>> getMerchantByNormalizedName(
-    int profileId,
-    String normalizedName,
-  );
+  Future<Result<Merchant?, Exception>> getMerchantById(int merchantId);
 
   /// Get merchants for a profile
-  Future<Result<List<Merchant>>> getMerchants(
-    int profileId, {
-    int? categoryId,
-    DateTime? lastSeenSince,
-    int? limit,
-    int? offset,
-  });
+  Future<Result<List<Merchant>, Exception>> getMerchants(int profileId);
 
-  /// Get recently seen merchants
-  Future<Result<List<Merchant>>> getRecentlySeenMerchants(
-    int profileId, {
-    int days = 30,
-    int? limit,
+  /// Get merchant by name
+  Future<Result<Merchant?, Exception>> getMerchantByName(
+    int profileId,
+    String name,
+  );
+
+  /// Normalize merchant name
+  String normalizeMerchantName(String rawName);
+
+  /// Get or create a merchant securely
+  Future<Result<Merchant, Exception>> getOrCreateMerchant(
+    int profileId,
+    String rawName,
+    String normalizedName, {
+    int? categoryId,
   });
 }

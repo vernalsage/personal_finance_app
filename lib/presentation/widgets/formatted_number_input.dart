@@ -6,6 +6,7 @@ class FormattedNumberInput extends StatefulWidget {
   final String? labelText;
   final String? prefixText;
   final String? suffixText;
+  final String? hintText;
   final InputDecoration? decoration;
   final TextInputType? keyboardType;
   final List<TextInputFormatter>? inputFormatters;
@@ -25,6 +26,7 @@ class FormattedNumberInput extends StatefulWidget {
     this.labelText,
     this.prefixText,
     this.suffixText,
+    this.hintText,
     this.decoration,
     this.keyboardType,
     this.inputFormatters,
@@ -137,6 +139,7 @@ class _FormattedNumberInputState extends State<FormattedNumberInput> {
           widget.decoration ??
           InputDecoration(
             labelText: widget.labelText,
+            hintText: widget.hintText,
             prefixText: widget.prefixText,
             suffixText: widget.suffixText,
             prefixIcon: widget.prefixIcon,

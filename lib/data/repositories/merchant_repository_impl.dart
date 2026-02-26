@@ -1,10 +1,8 @@
 import '../database/daos/merchants_dao.dart';
-import '../database/app_database_simple.dart';
 import '../mappers/merchant_mapper.dart';
 import '../../domain/repositories/merchant_repository.dart';
-import '../../domain/repositories/transaction_repository.dart';
+import '../../domain/core/result.dart';
 import '../../domain/entities/merchant.dart' as domain;
-import 'package:drift/drift.dart';
 
 /// Implementation of MerchantRepository using Drift DAO
 class MerchantRepositoryImpl implements MerchantRepository {
@@ -13,129 +11,140 @@ class MerchantRepositoryImpl implements MerchantRepository {
   MerchantRepositoryImpl(this._merchantsDao);
 
   @override
-  Future<Result<domain.Merchant>> getOrCreateMerchant(
-    int profileId,
-    String name,
-    String normalizedName, {
-    int? categoryId,
-  }) async {
+  Future<Result<domain.Merchant, Exception>> createMerchant(
+    domain.Merchant merchant,
+  ) async {
     try {
-      // First try to find existing merchant by normalized name
-      final existingMerchant = await _merchantsDao.getMerchantByName(
-        profileId,
-        normalizedName,
-      );
-      if (existingMerchant != null) {
-        // Update last seen timestamp
-        await _merchantsDao.updateLastSeen(existingMerchant.id);
-        return Result.success(existingMerchant.toEntity());
-      }
-
-      // Create new merchant if not found
-      final companion = MerchantsCompanion.insert(
-        profileId: profileId,
-        name: name,
-        normalizedName: normalizedName,
-        categoryId: categoryId != null
-            ? Value(categoryId)
-            : const Value.absent(),
-        lastSeen: DateTime.now(),
-      );
+      final companion = merchant.toCompanion();
       final createdMerchant = await _merchantsDao.createMerchant(companion);
-      return Result.success(createdMerchant.toEntity());
+      return Success(createdMerchant.toEntity());
     } catch (e) {
-      return Result.failure('Failed to get or create merchant: $e');
+      return Failure(Exception('Failed to create merchant: $e'));
     }
   }
 
   @override
-  Future<Result<domain.Merchant>> updateMerchant(
+  Future<Result<domain.Merchant, Exception>> updateMerchant(
     domain.Merchant merchant,
   ) async {
     try {
       final companion = merchant.toUpdateCompanion();
       final updatedMerchant = await _merchantsDao.updateMerchant(companion);
-      return Result.success(updatedMerchant.toEntity());
+      return Success(updatedMerchant.toEntity());
     } catch (e) {
-      return Result.failure('Failed to update merchant: $e');
+      return Failure(Exception('Failed to update merchant: $e'));
     }
   }
 
   @override
-  Future<Result<domain.Merchant>> updateLastSeen(int merchantId) async {
+  Future<Result<void, Exception>> deleteMerchant(int merchantId) async {
     try {
-      await _merchantsDao.updateLastSeen(merchantId);
-      // Return the updated merchant
-      final merchant = await _merchantsDao.getMerchant(merchantId);
-      return Result.success(merchant.toEntity());
+      await _merchantsDao.deleteMerchant(merchantId);
+      return Success(null);
     } catch (e) {
-      return Result.failure('Failed to update last seen: $e');
+      return Failure(Exception('Failed to delete merchant: $e'));
     }
   }
 
   @override
-  Future<Result<domain.Merchant?>> getMerchantById(int merchantId) async {
+  Future<Result<domain.Merchant?, Exception>> getMerchantById(int merchantId) async {
     try {
       final merchant = await _merchantsDao.getMerchant(merchantId);
-      return Result.success(merchant.toEntity());
+      return Success(merchant?.toEntity());
     } catch (e) {
-      return Result.failure('Failed to get merchant by ID: $e');
+      return Failure(Exception('Failed to get merchant by ID: $e'));
     }
   }
 
   @override
-  Future<Result<domain.Merchant?>> getMerchantByNormalizedName(
+  Future<Result<List<domain.Merchant>, Exception>> getMerchants(int profileId) async {
+    try {
+      final merchants = await _merchantsDao.getAllMerchants(
+        profileId: profileId,
+      );
+      final domainMerchants = merchants
+          .map((merchant) => merchant.toEntity())
+          .toList();
+      return Success(domainMerchants);
+    } catch (e) {
+      return Failure(Exception('Failed to get merchants: $e'));
+    }
+  }
+
+  @override
+  Future<Result<domain.Merchant?, Exception>> getMerchantByName(
     int profileId,
-    String normalizedName,
+    String name,
   ) async {
     try {
       final merchant = await _merchantsDao.getMerchantByName(
         profileId,
-        normalizedName,
+        name,
       );
-      return Result.success(merchant?.toEntity());
+      return Success(merchant?.toEntity());
     } catch (e) {
-      return Result.failure('Failed to get merchant by normalized name: $e');
+      return Failure(Exception('Failed to get merchant by name: $e'));
     }
   }
 
   @override
-  Future<Result<List<domain.Merchant>>> getMerchants(
-    int profileId, {
+  String normalizeMerchantName(String rawName) {
+    if (rawName.isEmpty) return 'Unknown';
+    
+    // 1. Convert to lowercase
+    String normalized = rawName.toLowerCase();
+    
+    // 2. Remove common business suffixes
+    final suffixes = [
+      ' ltd', ' limited', ' inc', ' incorporated', ' corp', ' corporation', 
+      ' plc', ' p.l.c', ' nig', ' nig.', ' gh', ' gh.', ' safaricom', ' m-pesa'
+    ];
+    for (final suffix in suffixes) {
+      if (normalized.endsWith(suffix)) {
+        normalized = normalized.substring(0, normalized.length - suffix.length);
+      }
+    }
+    
+    // 3. Remove terminal codes and transaction prefixes (e.g. POS* BOLT * 1234)
+    normalized = normalized
+        .replaceAll(RegExp(r'pos\s*\*?\s*', caseSensitive: false), '')
+        .replaceAll(RegExp(r'\s*\*?\s*\d{4,}', caseSensitive: false), '') // Numbers like 1234
+        .replaceAll(RegExp(r'\*+\s*', caseSensitive: false), '')
+        .trim();
+        
+    // 4. Proper Case (Capitalize each word for display)
+    if (normalized.isEmpty) return 'Unknown';
+    return normalized.split(' ').map((word) {
+      if (word.isEmpty) return '';
+      return word[0].toUpperCase() + word.substring(1).toLowerCase();
+    }).join(' ');
+  }
+
+  @override
+  Future<Result<domain.Merchant, Exception>> getOrCreateMerchant(
+    int profileId,
+    String rawName,
+    String normalizedName, {
     int? categoryId,
-    DateTime? lastSeenSince,
-    int? limit,
-    int? offset,
   }) async {
     try {
-      final merchants = await _merchantsDao.getAllMerchants(
-        profileId: profileId,
-      );
-      final domainMerchants = merchants
-          .map((merchant) => merchant.toEntity())
-          .toList();
-      return Result.success(domainMerchants);
-    } catch (e) {
-      return Result.failure('Failed to get merchants: $e');
-    }
-  }
+      final existingResult = await getMerchantByName(profileId, normalizedName);
+      if (existingResult.isSuccess && existingResult.successData != null) {
+        return Success(existingResult.successData!);
+      }
 
-  @override
-  Future<Result<List<domain.Merchant>>> getRecentlySeenMerchants(
-    int profileId, {
-    int days = 30,
-    int? limit,
-  }) async {
-    try {
-      final merchants = await _merchantsDao.getAllMerchants(
+      final newMerchant = domain.Merchant(
+        id: 0,
         profileId: profileId,
+        name: rawName,
+        normalizedName: normalizedName,
+        lastSeen: DateTime.now(),
+        categoryId: categoryId,
       );
-      final domainMerchants = merchants
-          .map((merchant) => merchant.toEntity())
-          .toList();
-      return Result.success(domainMerchants);
+
+      return await createMerchant(newMerchant);
     } catch (e) {
-      return Result.failure('Failed to get recently seen merchants: $e');
+      return Failure(Exception('Failed to get or create merchant: $e'));
     }
   }
 }

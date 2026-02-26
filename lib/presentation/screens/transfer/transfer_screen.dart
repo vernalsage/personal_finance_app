@@ -218,7 +218,7 @@ class _TransferScreenState extends ConsumerState<TransferScreen> {
 
             // Transfer Button
             ElevatedButton(
-              onPressed: _isProcessing || _canTransfer()
+              onPressed: _isProcessing || !_canTransfer()
                   ? null
                   : _performTransfer,
               style: ElevatedButton.styleFrom(

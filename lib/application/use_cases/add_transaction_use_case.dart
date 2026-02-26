@@ -40,14 +40,14 @@ class AddTransactionUseCase {
       Merchant merchant;
 
       if (existingMerchantResult.isSuccess &&
-          existingMerchantResult.data != null) {
+          existingMerchantResult.successData != null) {
         // Merchant exists, update last seen timestamp
-        merchant = existingMerchantResult.data!;
+        merchant = existingMerchantResult.successData!;
         final updateResult = await _merchantRepository.updateLastSeen(
           merchant.id,
         );
         if (updateResult.isSuccess) {
-          merchant = updateResult.data!;
+          merchant = updateResult.successData!;
         }
       } else {
         // Merchant doesn't exist, create new one
@@ -57,12 +57,12 @@ class AddTransactionUseCase {
         if (createMerchantResult.isFailure) {
           return domain_result.Failure(
             Exception(
-              'Failed to create merchant: ${createMerchantResult.error}',
+              'Failed to create merchant: ${createMerchantResult.failureData}',
             ),
           );
         }
 
-        merchant = createMerchantResult.data!;
+        merchant = createMerchantResult.successData!;
       }
 
       // Create transaction with the resolved merchant
@@ -87,10 +87,10 @@ class AddTransactionUseCase {
       );
 
       if (result.isFailure) {
-        return domain_result.Failure(Exception('Failed to create transaction'));
+        return domain_result.Failure(Exception('Failed to create transaction: ${result.failureData}'));
       }
 
-      return domain_result.Success(result.data!);
+      return domain_result.Success(result.successData!);
     } catch (e) {
       return domain_result.Failure(Exception('Failed to add transaction: $e'));
     }

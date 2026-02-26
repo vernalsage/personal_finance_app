@@ -1,5 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../domain/repositories/iaccount_repository.dart';
+import '../../domain/repositories/account_repository.dart';
 import '../../domain/usecases/account_usecases.dart';
 import '../../domain/entities/account.dart' as domain;
 import '../../data/repositories/account_repository_impl.dart';
@@ -13,7 +13,7 @@ final accountsDaoProvider = Provider<AccountsDao>((ref) {
 });
 
 /// Provider for account repository
-final accountRepositoryProvider = Provider<IAccountRepository>((ref) {
+final accountRepositoryProvider = Provider<AccountRepository>((ref) {
   return AccountRepositoryImpl(ref.read(accountsDaoProvider));
 });
 

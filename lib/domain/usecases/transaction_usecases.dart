@@ -1,7 +1,7 @@
 import '../entities/transaction.dart';
 import '../repositories/itransaction_repository.dart';
 import '../repositories/merchant_repository.dart';
-import '../repositories/transaction_repository.dart';
+import '../core/result.dart';
 
 /// Use case for creating a transaction
 class CreateTransactionUseCase {
@@ -11,13 +11,13 @@ class CreateTransactionUseCase {
   CreateTransactionUseCase(this._repository, this._merchantRepository);
 
   /// Execute the use case to create a transaction
-  Future<Result<Transaction>> call(Transaction transaction) async {
+  Future<Result<Transaction, Exception>> call(Transaction transaction) async {
     // Validate transaction
     if (transaction.amountMinor <= 0) {
-      return Result.failure('Transaction amount must be positive');
+      return Failure(Exception('Transaction amount must be positive'));
     }
     if (transaction.description.isEmpty) {
-      return Result.failure('Transaction description is required');
+      return Failure(Exception('Transaction description is required'));
     }
 
     try {
@@ -33,10 +33,10 @@ class CreateTransactionUseCase {
       );
 
       if (merchantResult.isFailure) {
-        return Result.failure(merchantResult.error ?? 'Unknown merchant error');
+        return Failure(Exception(merchantResult.failureData ?? 'Unknown merchant error'));
       }
 
-      final merchant = merchantResult.data!;
+      final merchant = merchantResult.successData!;
 
       // 3) Create Transaction entity using resolved merchantId
       final finalTransaction = Transaction(
@@ -57,7 +57,7 @@ class CreateTransactionUseCase {
       // 4) Call TransactionRepository.createTransaction()
       return await _repository.createTransaction(finalTransaction);
     } catch (e) {
-      return Result.failure('Failed to create transaction: $e');
+      return Failure(Exception('Failed to create transaction: $e'));
     }
   }
 
@@ -77,14 +77,14 @@ class UpdateTransactionUseCase {
 
   final ITransactionRepository _repository;
 
-  Future<Result<Transaction>> call(Transaction transaction) async {
+  Future<Result<Transaction, Exception>> call(Transaction transaction) async {
     // Validate transaction
     if (transaction.amountMinor <= 0) {
-      return Result.failure('Transaction amount must be positive');
+      return Failure(Exception('Transaction amount must be positive'));
     }
 
     if (transaction.description.isEmpty) {
-      return Result.failure('Transaction description is required');
+      return Failure(Exception('Transaction description is required'));
     }
 
     return await _repository.updateTransaction(transaction);
@@ -97,7 +97,7 @@ class DeleteTransactionUseCase {
 
   final ITransactionRepository _repository;
 
-  Future<Result<void>> call(int transactionId) async {
+  Future<Result<void, Exception>> call(int transactionId) async {
     return await _repository.deleteTransaction(transactionId);
   }
 }
@@ -108,7 +108,7 @@ class GetTransactionsRequiringReviewUseCase {
 
   final ITransactionRepository _repository;
 
-  Future<Result<List<Transaction>>> call(
+  Future<Result<List<Transaction>, Exception>> call(
     int profileId, {
     int? limit,
     int? offset,

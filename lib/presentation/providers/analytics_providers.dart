@@ -1,5 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../domain/repositories/transaction_repository.dart';
+import '../../domain/core/result.dart';
 import '../../domain/repositories/iaccount_repository.dart';
 import '../../domain/usecases/analytics_usecases.dart';
 
@@ -39,7 +39,7 @@ class FinancialOverviewState {
   const FinancialOverviewState({
     this.overview,
     this.isLoading = false,
-    this.error,
+    this.failureData,
   });
 
   final FinancialOverview? overview;
@@ -54,7 +54,7 @@ class FinancialOverviewState {
     return FinancialOverviewState(
       overview: overview ?? this.overview,
       isLoading: isLoading ?? this.isLoading,
-      error: error ?? this.error,
+      error: error ?? this.failureData,
     );
   }
 }
@@ -80,9 +80,9 @@ class FinancialOverviewNotifier extends StateNotifier<FinancialOverviewState> {
     );
 
     if (result.isSuccess) {
-      state = state.copyWith(overview: result.data!, isLoading: false);
+      state = state.copyWith(overview: result.successData!, isLoading: false);
     } else {
-      state = state.copyWith(isLoading: false, error: result.error);
+      state = state.copyWith(isLoading: false, error: result.failureData);
     }
   }
 
@@ -102,7 +102,7 @@ final financialOverviewProvider =
 
 /// State for cash runway
 class CashRunwayState {
-  const CashRunwayState({this.cashRunway, this.isLoading = false, this.error});
+  const CashRunwayState({this.cashRunway, this.isLoading = false, this.failureData});
 
   final CashRunway? cashRunway;
   final bool isLoading;
@@ -116,7 +116,7 @@ class CashRunwayState {
     return CashRunwayState(
       cashRunway: cashRunway ?? this.cashRunway,
       isLoading: isLoading ?? this.isLoading,
-      error: error ?? this.error,
+      error: error ?? this.failureData,
     );
   }
 }
@@ -134,9 +134,9 @@ class CashRunwayNotifier extends StateNotifier<CashRunwayState> {
     final result = await _calculateCashRunwayUseCase(profileId);
 
     if (result.isSuccess) {
-      state = state.copyWith(cashRunway: result.data!, isLoading: false);
+      state = state.copyWith(cashRunway: result.successData!, isLoading: false);
     } else {
-      state = state.copyWith(isLoading: false, error: result.error);
+      state = state.copyWith(isLoading: false, error: result.failureData);
     }
   }
 
