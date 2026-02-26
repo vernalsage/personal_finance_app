@@ -9,6 +9,7 @@ import '../../data/database/daos/budgets_dao.dart';
 import '../../data/database/daos/goals_dao.dart';
 import '../../data/database/daos/recurring_rules_dao.dart';
 import '../../data/database/daos/tags_dao.dart';
+import '../../data/database/daos/notification_fingerprints_dao.dart';
 
 /// Global provider for the Drift AppDatabase
 final databaseProvider = Provider<AppDatabase>((ref) {
@@ -67,4 +68,10 @@ final recurringRulesDaoProvider = Provider<RecurringRulesDao>((ref) {
 final tagsDaoProvider = Provider<TagsDao>((ref) {
   final db = ref.watch(databaseProvider);
   return TagsDao(db);
+});
+
+/// Provider for Notification Fingerprints DAO
+final notificationFingerprintsDaoProvider = Provider<NotificationFingerprintsDao>((ref) {
+  final db = ref.watch(databaseProvider);
+  return NotificationFingerprintsDao(db);
 });

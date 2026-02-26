@@ -9,6 +9,8 @@ import '../../domain/repositories/goal_repository.dart';
 import '../../domain/repositories/recurring_rule_repository.dart';
 import '../../domain/repositories/tag_repository.dart';
 import '../../domain/repositories/profile_repository.dart';
+import '../../domain/repositories/inotification_fingerprint_repository.dart';
+import '../../data/repositories/notification_fingerprint_repository_impl.dart';
 import '../../data/repositories/account_repository_impl.dart';
 import '../../data/repositories/transaction_repository_impl.dart';
 import '../../data/repositories/merchant_repository_impl.dart';
@@ -62,4 +64,9 @@ final recurringRuleRepositoryProvider = Provider<RecurringRuleRepository>((ref) 
 /// Provider for Tag Repository
 final tagRepositoryProvider = Provider<TagRepository>((ref) {
   return TagRepositoryImpl(ref.watch(tagsDaoProvider));
+});
+
+/// Provider for Notification Fingerprint Repository
+final notificationFingerprintRepositoryProvider = Provider<INotificationFingerprintRepository>((ref) {
+  return NotificationFingerprintRepositoryImpl(ref.watch(notificationFingerprintsDaoProvider));
 });

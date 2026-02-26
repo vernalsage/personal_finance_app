@@ -1,59 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../domain/repositories/account_repository.dart';
+import '../../domain/entities/account.dart';
 import '../../domain/usecases/account_usecases.dart';
-import '../../domain/entities/account.dart' as domain;
-import '../../data/repositories/account_repository_impl.dart';
-import '../../data/database/daos/accounts_dao.dart';
-import '../../data/database/app_database_simple.dart';
+import '../../core/di/usecase_providers.dart';
 
-/// Provider for accounts DAO
-final accountsDaoProvider = Provider<AccountsDao>((ref) {
-  final db = AppDatabase();
-  return AccountsDao(db);
-});
-
-/// Provider for account repository
-final accountRepositoryProvider = Provider<AccountRepository>((ref) {
-  return AccountRepositoryImpl(ref.read(accountsDaoProvider));
-});
-
-/// Provider for update account use case
-final updateAccountUseCaseProvider = Provider<UpdateAccountUseCase>((ref) {
-  return UpdateAccountUseCase(
-    AccountRepositoryImpl(ref.read(accountsDaoProvider)),
-  );
-});
-
-/// Provider for delete account use case
-final deleteAccountUseCaseProvider = Provider<DeleteAccountUseCase>((ref) {
-  return DeleteAccountUseCase(
-    AccountRepositoryImpl(ref.read(accountsDaoProvider)),
-  );
-});
-
-/// Provider for create account use case
-final createAccountUseCaseProvider = Provider<CreateAccountUseCase>((ref) {
-  return CreateAccountUseCase(
-    AccountRepositoryImpl(ref.read(accountsDaoProvider)),
-  );
-});
-
-/// Provider for get accounts use case
-final getAccountsUseCaseProvider = Provider<GetAccountsUseCase>((ref) {
-  return GetAccountsUseCase(
-    AccountRepositoryImpl(ref.read(accountsDaoProvider)),
-  );
-});
-
-/// Provider for update account balance use case
-final updateAccountBalanceUseCaseProvider =
-    Provider<UpdateAccountBalanceUseCase>((ref) {
-      return UpdateAccountBalanceUseCase(
-        AccountRepositoryImpl(ref.read(accountsDaoProvider)),
-      );
-    });
-
-/// State for accounts list
+/// State for accounts management
 class AccountsState {
   const AccountsState({
     this.accounts = const [],
@@ -61,12 +11,12 @@ class AccountsState {
     this.error,
   });
 
-  final List<domain.Account> accounts;
+  final List<Account> accounts;
   final bool isLoading;
   final String? error;
 
   AccountsState copyWith({
-    List<domain.Account>? accounts,
+    List<Account>? accounts,
     bool? isLoading,
     String? error,
   }) {
@@ -78,12 +28,23 @@ class AccountsState {
   }
 }
 
-/// Provider for accounts state
+/// Notifier for managing accounts state
 class AccountsNotifier extends StateNotifier<AccountsState> {
   AccountsNotifier(this._getAccountsUseCase) : super(const AccountsState());
 
   final GetAccountsUseCase _getAccountsUseCase;
+  CreateAccountUseCase? _createAccountUseCase;
+  UpdateAccountUseCase? _updateAccountUseCase;
 
+  void setUseCases({
+    CreateAccountUseCase? createAccountUseCase,
+    UpdateAccountUseCase? updateAccountUseCase,
+  }) {
+    _createAccountUseCase = createAccountUseCase;
+    _updateAccountUseCase = updateAccountUseCase;
+  }
+
+  /// Fetch accounts for a profile
   Future<void> loadAccounts(
     int profileId, {
     bool? isActive,
@@ -117,13 +78,74 @@ class AccountsNotifier extends StateNotifier<AccountsState> {
     }
   }
 
+  /// Add a new account
+  Future<void> addAccount(Account account) async {
+    if (_createAccountUseCase == null) {
+      state = state.copyWith(error: 'CreateAccountUseCase not initialized');
+      return;
+    }
+
+    state = state.copyWith(isLoading: true, error: null);
+
+    final result = await _createAccountUseCase!(account);
+
+    if (result.isSuccess) {
+      // Refresh the accounts list
+      await loadAccounts(account.profileId);
+    } else {
+      state = state.copyWith(
+        isLoading: false,
+        error: result.failureData.toString(),
+      );
+    }
+  }
+
+  /// Update an existing account
+  Future<void> updateAccount(Account account) async {
+    if (_updateAccountUseCase == null) {
+      state = state.copyWith(error: 'UpdateAccountUseCase not initialized');
+      return;
+    }
+
+    state = state.copyWith(isLoading: true, error: null);
+
+    final result = await _updateAccountUseCase!(account);
+
+    if (result.isSuccess) {
+      // Refresh the accounts list
+      await loadAccounts(account.profileId);
+    } else {
+      state = state.copyWith(
+        isLoading: false,
+        error: result.failureData.toString(),
+      );
+    }
+  }
+
+  /// Refresh accounts list
+  Future<void> refreshAccounts(int profileId) async {
+    await loadAccounts(profileId);
+  }
+
+  /// Clear any error state
   void clearError() {
     state = state.copyWith(error: null);
   }
 }
 
+/// Provider for accounts state
 final accountsProvider = StateNotifierProvider<AccountsNotifier, AccountsState>(
   (ref) {
-    return AccountsNotifier(ref.read(getAccountsUseCaseProvider));
+    final getAccountsUseCase = ref.read(getAccountsUseCaseProvider);
+    final createAccountUseCase = ref.read(createAccountUseCaseProvider);
+    final updateAccountUseCase = ref.read(updateAccountUseCaseProvider);
+
+    final notifier = AccountsNotifier(getAccountsUseCase);
+    notifier.setUseCases(
+      createAccountUseCase: createAccountUseCase,
+      updateAccountUseCase: updateAccountUseCase,
+    );
+
+    return notifier;
   },
 );

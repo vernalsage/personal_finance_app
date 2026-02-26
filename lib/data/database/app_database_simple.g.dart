@@ -5439,6 +5439,341 @@ class TransactionGoalsCompanion extends UpdateCompanion<TransactionGoal> {
   }
 }
 
+class $NotificationFingerprintsTable extends NotificationFingerprints
+    with TableInfo<$NotificationFingerprintsTable, NotificationFingerprint> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $NotificationFingerprintsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _fingerprintMeta = const VerificationMeta(
+    'fingerprint',
+  );
+  @override
+  late final GeneratedColumn<String> fingerprint = GeneratedColumn<String>(
+    'fingerprint',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
+  );
+  static const VerificationMeta _processedAtMeta = const VerificationMeta(
+    'processedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> processedAt = GeneratedColumn<DateTime>(
+    'processed_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _transactionIdMeta = const VerificationMeta(
+    'transactionId',
+  );
+  @override
+  late final GeneratedColumn<int> transactionId = GeneratedColumn<int>(
+    'transaction_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    fingerprint,
+    processedAt,
+    transactionId,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'notification_fingerprints';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<NotificationFingerprint> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('fingerprint')) {
+      context.handle(
+        _fingerprintMeta,
+        fingerprint.isAcceptableOrUnknown(
+          data['fingerprint']!,
+          _fingerprintMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_fingerprintMeta);
+    }
+    if (data.containsKey('processed_at')) {
+      context.handle(
+        _processedAtMeta,
+        processedAt.isAcceptableOrUnknown(
+          data['processed_at']!,
+          _processedAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('transaction_id')) {
+      context.handle(
+        _transactionIdMeta,
+        transactionId.isAcceptableOrUnknown(
+          data['transaction_id']!,
+          _transactionIdMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  NotificationFingerprint map(
+    Map<String, dynamic> data, {
+    String? tablePrefix,
+  }) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return NotificationFingerprint(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      fingerprint: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}fingerprint'],
+      )!,
+      processedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}processed_at'],
+      )!,
+      transactionId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}transaction_id'],
+      ),
+    );
+  }
+
+  @override
+  $NotificationFingerprintsTable createAlias(String alias) {
+    return $NotificationFingerprintsTable(attachedDatabase, alias);
+  }
+}
+
+class NotificationFingerprint extends DataClass
+    implements Insertable<NotificationFingerprint> {
+  final int id;
+
+  /// The unique fingerprint of the notification (usually a hash of text + timestamp)
+  final String fingerprint;
+
+  /// When this notification was processed
+  final DateTime processedAt;
+
+  /// Reference to the transaction created (if any)
+  final int? transactionId;
+  const NotificationFingerprint({
+    required this.id,
+    required this.fingerprint,
+    required this.processedAt,
+    this.transactionId,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['fingerprint'] = Variable<String>(fingerprint);
+    map['processed_at'] = Variable<DateTime>(processedAt);
+    if (!nullToAbsent || transactionId != null) {
+      map['transaction_id'] = Variable<int>(transactionId);
+    }
+    return map;
+  }
+
+  NotificationFingerprintsCompanion toCompanion(bool nullToAbsent) {
+    return NotificationFingerprintsCompanion(
+      id: Value(id),
+      fingerprint: Value(fingerprint),
+      processedAt: Value(processedAt),
+      transactionId: transactionId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(transactionId),
+    );
+  }
+
+  factory NotificationFingerprint.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return NotificationFingerprint(
+      id: serializer.fromJson<int>(json['id']),
+      fingerprint: serializer.fromJson<String>(json['fingerprint']),
+      processedAt: serializer.fromJson<DateTime>(json['processedAt']),
+      transactionId: serializer.fromJson<int?>(json['transactionId']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'fingerprint': serializer.toJson<String>(fingerprint),
+      'processedAt': serializer.toJson<DateTime>(processedAt),
+      'transactionId': serializer.toJson<int?>(transactionId),
+    };
+  }
+
+  NotificationFingerprint copyWith({
+    int? id,
+    String? fingerprint,
+    DateTime? processedAt,
+    Value<int?> transactionId = const Value.absent(),
+  }) => NotificationFingerprint(
+    id: id ?? this.id,
+    fingerprint: fingerprint ?? this.fingerprint,
+    processedAt: processedAt ?? this.processedAt,
+    transactionId: transactionId.present
+        ? transactionId.value
+        : this.transactionId,
+  );
+  NotificationFingerprint copyWithCompanion(
+    NotificationFingerprintsCompanion data,
+  ) {
+    return NotificationFingerprint(
+      id: data.id.present ? data.id.value : this.id,
+      fingerprint: data.fingerprint.present
+          ? data.fingerprint.value
+          : this.fingerprint,
+      processedAt: data.processedAt.present
+          ? data.processedAt.value
+          : this.processedAt,
+      transactionId: data.transactionId.present
+          ? data.transactionId.value
+          : this.transactionId,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('NotificationFingerprint(')
+          ..write('id: $id, ')
+          ..write('fingerprint: $fingerprint, ')
+          ..write('processedAt: $processedAt, ')
+          ..write('transactionId: $transactionId')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, fingerprint, processedAt, transactionId);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is NotificationFingerprint &&
+          other.id == this.id &&
+          other.fingerprint == this.fingerprint &&
+          other.processedAt == this.processedAt &&
+          other.transactionId == this.transactionId);
+}
+
+class NotificationFingerprintsCompanion
+    extends UpdateCompanion<NotificationFingerprint> {
+  final Value<int> id;
+  final Value<String> fingerprint;
+  final Value<DateTime> processedAt;
+  final Value<int?> transactionId;
+  const NotificationFingerprintsCompanion({
+    this.id = const Value.absent(),
+    this.fingerprint = const Value.absent(),
+    this.processedAt = const Value.absent(),
+    this.transactionId = const Value.absent(),
+  });
+  NotificationFingerprintsCompanion.insert({
+    this.id = const Value.absent(),
+    required String fingerprint,
+    this.processedAt = const Value.absent(),
+    this.transactionId = const Value.absent(),
+  }) : fingerprint = Value(fingerprint);
+  static Insertable<NotificationFingerprint> custom({
+    Expression<int>? id,
+    Expression<String>? fingerprint,
+    Expression<DateTime>? processedAt,
+    Expression<int>? transactionId,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (fingerprint != null) 'fingerprint': fingerprint,
+      if (processedAt != null) 'processed_at': processedAt,
+      if (transactionId != null) 'transaction_id': transactionId,
+    });
+  }
+
+  NotificationFingerprintsCompanion copyWith({
+    Value<int>? id,
+    Value<String>? fingerprint,
+    Value<DateTime>? processedAt,
+    Value<int?>? transactionId,
+  }) {
+    return NotificationFingerprintsCompanion(
+      id: id ?? this.id,
+      fingerprint: fingerprint ?? this.fingerprint,
+      processedAt: processedAt ?? this.processedAt,
+      transactionId: transactionId ?? this.transactionId,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (fingerprint.present) {
+      map['fingerprint'] = Variable<String>(fingerprint.value);
+    }
+    if (processedAt.present) {
+      map['processed_at'] = Variable<DateTime>(processedAt.value);
+    }
+    if (transactionId.present) {
+      map['transaction_id'] = Variable<int>(transactionId.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('NotificationFingerprintsCompanion(')
+          ..write('id: $id, ')
+          ..write('fingerprint: $fingerprint, ')
+          ..write('processedAt: $processedAt, ')
+          ..write('transactionId: $transactionId')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -5457,6 +5792,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $TransactionGoalsTable transactionGoals = $TransactionGoalsTable(
     this,
   );
+  late final $NotificationFingerprintsTable notificationFingerprints =
+      $NotificationFingerprintsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -5473,6 +5810,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     goals,
     transactionTags,
     transactionGoals,
+    notificationFingerprints,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -12472,6 +12810,206 @@ typedef $$TransactionGoalsTableProcessedTableManager =
       TransactionGoal,
       PrefetchHooks Function({bool transactionId, bool goalId})
     >;
+typedef $$NotificationFingerprintsTableCreateCompanionBuilder =
+    NotificationFingerprintsCompanion Function({
+      Value<int> id,
+      required String fingerprint,
+      Value<DateTime> processedAt,
+      Value<int?> transactionId,
+    });
+typedef $$NotificationFingerprintsTableUpdateCompanionBuilder =
+    NotificationFingerprintsCompanion Function({
+      Value<int> id,
+      Value<String> fingerprint,
+      Value<DateTime> processedAt,
+      Value<int?> transactionId,
+    });
+
+class $$NotificationFingerprintsTableFilterComposer
+    extends Composer<_$AppDatabase, $NotificationFingerprintsTable> {
+  $$NotificationFingerprintsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get fingerprint => $composableBuilder(
+    column: $table.fingerprint,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get processedAt => $composableBuilder(
+    column: $table.processedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get transactionId => $composableBuilder(
+    column: $table.transactionId,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$NotificationFingerprintsTableOrderingComposer
+    extends Composer<_$AppDatabase, $NotificationFingerprintsTable> {
+  $$NotificationFingerprintsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get fingerprint => $composableBuilder(
+    column: $table.fingerprint,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get processedAt => $composableBuilder(
+    column: $table.processedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get transactionId => $composableBuilder(
+    column: $table.transactionId,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$NotificationFingerprintsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $NotificationFingerprintsTable> {
+  $$NotificationFingerprintsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get fingerprint => $composableBuilder(
+    column: $table.fingerprint,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get processedAt => $composableBuilder(
+    column: $table.processedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get transactionId => $composableBuilder(
+    column: $table.transactionId,
+    builder: (column) => column,
+  );
+}
+
+class $$NotificationFingerprintsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $NotificationFingerprintsTable,
+          NotificationFingerprint,
+          $$NotificationFingerprintsTableFilterComposer,
+          $$NotificationFingerprintsTableOrderingComposer,
+          $$NotificationFingerprintsTableAnnotationComposer,
+          $$NotificationFingerprintsTableCreateCompanionBuilder,
+          $$NotificationFingerprintsTableUpdateCompanionBuilder,
+          (
+            NotificationFingerprint,
+            BaseReferences<
+              _$AppDatabase,
+              $NotificationFingerprintsTable,
+              NotificationFingerprint
+            >,
+          ),
+          NotificationFingerprint,
+          PrefetchHooks Function()
+        > {
+  $$NotificationFingerprintsTableTableManager(
+    _$AppDatabase db,
+    $NotificationFingerprintsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$NotificationFingerprintsTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$NotificationFingerprintsTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$NotificationFingerprintsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> fingerprint = const Value.absent(),
+                Value<DateTime> processedAt = const Value.absent(),
+                Value<int?> transactionId = const Value.absent(),
+              }) => NotificationFingerprintsCompanion(
+                id: id,
+                fingerprint: fingerprint,
+                processedAt: processedAt,
+                transactionId: transactionId,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String fingerprint,
+                Value<DateTime> processedAt = const Value.absent(),
+                Value<int?> transactionId = const Value.absent(),
+              }) => NotificationFingerprintsCompanion.insert(
+                id: id,
+                fingerprint: fingerprint,
+                processedAt: processedAt,
+                transactionId: transactionId,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$NotificationFingerprintsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $NotificationFingerprintsTable,
+      NotificationFingerprint,
+      $$NotificationFingerprintsTableFilterComposer,
+      $$NotificationFingerprintsTableOrderingComposer,
+      $$NotificationFingerprintsTableAnnotationComposer,
+      $$NotificationFingerprintsTableCreateCompanionBuilder,
+      $$NotificationFingerprintsTableUpdateCompanionBuilder,
+      (
+        NotificationFingerprint,
+        BaseReferences<
+          _$AppDatabase,
+          $NotificationFingerprintsTable,
+          NotificationFingerprint
+        >,
+      ),
+      NotificationFingerprint,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -12497,4 +13035,9 @@ class $AppDatabaseManager {
       $$TransactionTagsTableTableManager(_db, _db.transactionTags);
   $$TransactionGoalsTableTableManager get transactionGoals =>
       $$TransactionGoalsTableTableManager(_db, _db.transactionGoals);
+  $$NotificationFingerprintsTableTableManager get notificationFingerprints =>
+      $$NotificationFingerprintsTableTableManager(
+        _db,
+        _db.notificationFingerprints,
+      );
 }

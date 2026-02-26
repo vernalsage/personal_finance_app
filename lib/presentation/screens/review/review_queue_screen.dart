@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../domain/entities/transaction.dart';
 import '../../../domain/usecases/transaction_usecases.dart';
-import '../../state/transactions_notifier.dart';
 import '../../providers/transaction_providers.dart' as providers;
+import '../../../core/di/usecase_providers.dart';
 
 class ReviewQueueScreen extends ConsumerStatefulWidget {
   const ReviewQueueScreen({super.key});
@@ -15,10 +15,8 @@ class ReviewQueueScreen extends ConsumerStatefulWidget {
 class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
   @override
   Widget build(BuildContext context) {
-    final transactionsState = ref.watch(transactionsProvider);
-    final updateTransactionUseCase = ref.read(
-      providers.updateTransactionUseCaseProvider,
-    );
+    final transactionsState = ref.watch(providers.transactionsProvider);
+    final updateTransactionUseCase = ref.read(updateTransactionUseCaseProvider);
 
     // Filter only transactions that require review
     final reviewTransactions = transactionsState.transactions

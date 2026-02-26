@@ -1,15 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../providers/security_providers.dart';
 import '../budgets/budgets_screen.dart';
 import '../goals/goals_screen.dart';
 import '../recurring/recurring_rules_screen.dart';
 import '../merchants/merchants_screen.dart';
 import '../../../main.dart';
 
-class SettingsScreen extends StatelessWidget {
+class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final securityState = ref.watch(securityProvider);
+
     return Scaffold(
       backgroundColor: kBackground,
       appBar: AppBar(
@@ -57,11 +61,10 @@ class SettingsScreen extends StatelessWidget {
           ]),
           const SizedBox(height: 24),
           _buildSection(context, 'App Settings', [
-            _SettingTile(
-              icon: Icons.security_outlined,
-              title: 'Security',
-              subtitle: 'Biometrics and data encryption',
-              onTap: () {},
+            _SecurityToggleTile(
+              isActive: securityState.isBiometricEnabled,
+              isAvailable: securityState.isBiometricAvailable,
+              onChanged: (v) => ref.read(securityProvider.notifier).setBiometricEnabled(v),
             ),
             _SettingTile(
               icon: Icons.cloud_outlined,
@@ -133,6 +136,40 @@ class _SettingTile extends StatelessWidget {
       subtitle: Text(subtitle, style: const TextStyle(fontSize: 12)),
       trailing: const Icon(Icons.chevron_right, size: 20, color: kTextSecondary),
       onTap: onTap,
+    );
+  }
+}
+
+class _SecurityToggleTile extends StatelessWidget {
+  final bool isActive;
+  final bool isAvailable;
+  final ValueChanged<bool> onChanged;
+
+  const _SecurityToggleTile({
+    required this.isActive,
+    required this.isAvailable,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SwitchListTile(
+      secondary: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: kPrimaryBg,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: const Icon(Icons.security_outlined, color: kPrimary, size: 20),
+      ),
+      title: const Text('Biometric Lock', style: TextStyle(fontWeight: FontWeight.w600)),
+      subtitle: Text(
+        isAvailable ? 'Secure your data with biometrics' : 'Biometrics not available on this device',
+        style: const TextStyle(fontSize: 12),
+      ),
+      value: isAvailable && isActive,
+      onChanged: isAvailable ? onChanged : null,
+      activeColor: kPrimary,
     );
   }
 }

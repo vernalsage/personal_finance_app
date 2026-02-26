@@ -35,7 +35,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     try {
       await Future.wait([
         ref.read(accountsProvider.notifier).loadAccounts(1),
-        ref.read(transactionsProvider.notifier).loadTransactionsRequiringReview(1),
+        ref.read(transactionsProvider.notifier).loadTransactions(1, limit: 10),
       ]);
       if (mounted) setState(() => _dataLoaded = true);
     } catch (e) {

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../domain/entities/account.dart';
 import '../../../core/utils/currency_utils.dart';
 import '../../providers/account_providers.dart';
+import '../../../core/di/usecase_providers.dart';
 
 class TransferScreen extends ConsumerStatefulWidget {
   const TransferScreen({super.key});

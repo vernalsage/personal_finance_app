@@ -2,6 +2,12 @@ import 'dart:io';
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:path_provider/path_provider.dart';
+import '../../services/auth_service.dart';
+import 'package:crypto/crypto.dart';
+import 'dart:convert';
+import 'dart:math';
+import 'package:sqlite3/open.dart';
+import 'package:sqlcipher_flutter_libs/sqlcipher_flutter_libs.dart';
 
 import 'tables/profiles_table.dart';
 import 'tables/accounts_table.dart';
@@ -14,6 +20,7 @@ import 'tables/recurring_rules_table.dart';
 import 'tables/goals_table.dart';
 import 'tables/transaction_tags_table.dart';
 import 'tables/transaction_goals_table.dart';
+import 'tables/notification_fingerprints_table.dart';
 
 part 'app_database_simple.g.dart';
 
@@ -31,6 +38,7 @@ part 'app_database_simple.g.dart';
     Goals,
     TransactionTags,
     TransactionGoals,
+    NotificationFingerprints,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -53,11 +61,36 @@ class AppDatabase extends _$AppDatabase {
   static Future<DatabaseConnection> _openConnection() async {
     // Get the database file path asynchronously
     final dbFolder = await getApplicationDocumentsDirectory();
-    final dbPath = '${dbFolder.path}/finance_ledger_v2.sqlite';
+    final dbPath = '${dbFolder.path}/finance_ledger_v2_encrypted.sqlite';
 
-    // Open database without encryption for MVP (non-blocking)
+    // Get or create encryption key
+    final authService = AuthService.instance;
+    String? key = await authService.getEncryptionKey();
+
+    if (key == null) {
+      // Generate a new 32-character random key
+      final random = Random.secure();
+      final values = List<int>.generate(32, (i) => random.nextInt(256));
+      key = base64Url.encode(values);
+      await authService.storeEncryptionKey(key);
+    }
+
     final file = File(dbPath);
-    return DatabaseConnection(NativeDatabase(file));
+
+    // Fail-safe: ensure override is set before opening
+    if (Platform.isAndroid) {
+      open.overrideFor(OperatingSystem.android, openCipherOnAndroid);
+    }
+
+    // Open database with encryption
+    return DatabaseConnection(
+      NativeDatabase(
+        file,
+        setup: (database) {
+          database.execute("PRAGMA key = '$key';");
+        },
+      ),
+    );
   }
 
   /// Initialize database with default data

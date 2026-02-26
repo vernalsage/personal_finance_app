@@ -33,22 +33,17 @@ class AddTransactionUseCase {
       // Normalize merchant name for lookup
       final normalizedName = StringUtils.normalizeMerchantName(merchantName);
 
-      // Try to find existing merchant by normalized name
+      // Try to find existing merchant by name
       final existingMerchantResult = await _merchantRepository
-          .getMerchantByNormalizedName(profileId, normalizedName);
+          .getMerchantByName(profileId, normalizedName);
 
       Merchant merchant;
 
       if (existingMerchantResult.isSuccess &&
           existingMerchantResult.successData != null) {
-        // Merchant exists, update last seen timestamp
+        // Merchant exists
         merchant = existingMerchantResult.successData!;
-        final updateResult = await _merchantRepository.updateLastSeen(
-          merchant.id,
-        );
-        if (updateResult.isSuccess) {
-          merchant = updateResult.successData!;
-        }
+        // Note: updateLastSeen deferred or handled via updateMerchant if needed
       } else {
         // Merchant doesn't exist, create new one
         final createMerchantResult = await _merchantRepository

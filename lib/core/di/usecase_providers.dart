@@ -5,6 +5,8 @@ import '../../domain/usecases/execute_transfer_usecase.dart';
 import '../../domain/usecases/goal_usecases.dart';
 import '../../domain/usecases/recurring_rule_usecases.dart';
 import '../../domain/usecases/insight_usecases.dart';
+import '../../domain/usecases/account_usecases.dart';
+import '../../domain/usecases/transaction_usecases.dart';
 
 /// Provider for GetBudgetsUseCase
 final getBudgetsUseCaseProvider = Provider<GetBudgetsUseCase>((ref) {
@@ -92,4 +94,56 @@ final getExpenseBreakdownUseCaseProvider = Provider<GetExpenseBreakdownUseCase>(
 /// Provider for GetWeeklySpendingUseCase
 final getWeeklySpendingUseCaseProvider = Provider<GetWeeklySpendingUseCase>((ref) {
   return GetWeeklySpendingUseCase(ref.watch(transactionRepositoryProvider));
+});
+
+// --- Account Use Cases ---
+
+/// Provider for CreateAccountUseCase
+final createAccountUseCaseProvider = Provider<CreateAccountUseCase>((ref) {
+  return CreateAccountUseCase(ref.watch(accountRepositoryProvider));
+});
+
+/// Provider for UpdateAccountUseCase
+final updateAccountUseCaseProvider = Provider<UpdateAccountUseCase>((ref) {
+  return UpdateAccountUseCase(ref.watch(accountRepositoryProvider));
+});
+
+/// Provider for DeleteAccountUseCase
+final deleteAccountUseCaseProvider = Provider<DeleteAccountUseCase>((ref) {
+  return DeleteAccountUseCase(ref.watch(accountRepositoryProvider));
+});
+
+/// Provider for GetAccountsUseCase
+final getAccountsUseCaseProvider = Provider<GetAccountsUseCase>((ref) {
+  return GetAccountsUseCase(ref.watch(accountRepositoryProvider));
+});
+
+/// Provider for UpdateAccountBalanceUseCase
+final updateAccountBalanceUseCaseProvider = Provider<UpdateAccountBalanceUseCase>((ref) {
+  return UpdateAccountBalanceUseCase(ref.watch(accountRepositoryProvider));
+});
+
+// --- Transaction Use Cases ---
+
+/// Provider for CreateTransactionUseCase
+final createTransactionUseCaseProvider = Provider<CreateTransactionUseCase>((ref) {
+  return CreateTransactionUseCase(
+    ref.watch(transactionRepositoryProvider),
+    ref.watch(merchantRepositoryProvider),
+  );
+});
+
+/// Provider for UpdateTransactionUseCase
+final updateTransactionUseCaseProvider = Provider<UpdateTransactionUseCase>((ref) {
+  return UpdateTransactionUseCase(ref.watch(transactionRepositoryProvider));
+});
+
+/// Provider for DeleteTransactionUseCase
+final deleteTransactionUseCaseProvider = Provider<DeleteTransactionUseCase>((ref) {
+  return DeleteTransactionUseCase(ref.watch(transactionRepositoryProvider));
+});
+
+/// Provider for GetTransactionsRequiringReviewUseCase
+final getTransactionsRequiringReviewUseCaseProvider = Provider<GetTransactionsRequiringReviewUseCase>((ref) {
+  return GetTransactionsRequiringReviewUseCase(ref.watch(transactionRepositoryProvider));
 });

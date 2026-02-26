@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../domain/entities/transaction.dart';
 import '../../../core/utils/currency_utils.dart';
 import '../../../main.dart';
+import '../../providers/transaction_providers.dart' as providers;
+import '../../../application/services/notification_pipeline_service.dart';
 
 
 class TransactionsScreen extends ConsumerStatefulWidget {
@@ -16,90 +18,15 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
   final _searchController = TextEditingController();
   String _selectedFilter = 'All';
   String _searchQuery = '';
-
   final List<String> _filters = ['All', 'Credits', 'Debits', 'Pending'];
 
-  // Mock data matching the Stitch mockup style (used until real DB integration)
-  final List<Transaction> _mockTransactions = [
-    Transaction(
-      id: 1,
-      profileId: 1,
-      accountId: 1,
-      categoryId: 1,
-      merchantId: 1,
-      amountMinor: -129900, // -$1,299.00
-      type: 'expense',
-      description: 'Apple Store',
-      timestamp: DateTime.now().subtract(const Duration(hours: 3)),
-      confidenceScore: 100,
-      requiresReview: false,
-    ),
-    Transaction(
-      id: 2,
-      profileId: 1,
-      accountId: 1,
-      categoryId: 2,
-      merchantId: 2,
-      amountMinor: 540000, // +$5,400.00
-      type: 'income',
-      description: 'Monthly Salary',
-      timestamp: DateTime.now().subtract(const Duration(hours: 6)),
-      confidenceScore: 100,
-      requiresReview: false,
-    ),
-    Transaction(
-      id: 3,
-      profileId: 1,
-      accountId: 2,
-      categoryId: 3,
-      merchantId: 3,
-      amountMinor: -1245, // -$12.45
-      type: 'expense',
-      description: 'Starbucks Coffee',
-      timestamp: DateTime.now().subtract(const Duration(days: 1, hours: 2)),
-      confidenceScore: 95,
-      requiresReview: false,
-    ),
-    Transaction(
-      id: 4,
-      profileId: 1,
-      accountId: 1,
-      categoryId: 4,
-      merchantId: 4,
-      amountMinor: -2420, // -$24.20
-      type: 'expense',
-      description: 'Uber Trip',
-      timestamp: DateTime.now().subtract(const Duration(days: 1, hours: 5)),
-      confidenceScore: 92,
-      requiresReview: false,
-    ),
-    Transaction(
-      id: 5,
-      profileId: 1,
-      accountId: 1,
-      categoryId: 5,
-      merchantId: 5,
-      amountMinor: -15600, // -$156.00
-      type: 'expense',
-      description: 'Utility Bill',
-      timestamp: DateTime.now().subtract(const Duration(days: 1, hours: 8)),
-      confidenceScore: 88,
-      requiresReview: true,
-    ),
-    Transaction(
-      id: 6,
-      profileId: 1,
-      accountId: 2,
-      categoryId: 2,
-      merchantId: 6,
-      amountMinor: 95000000,
-      type: 'income',
-      description: 'TechCorp Ltd',
-      timestamp: DateTime.now().subtract(const Duration(days: 3)),
-      confidenceScore: 100,
-      requiresReview: false,
-    ),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(providers.transactionsProvider.notifier).loadTransactions(1);
+    });
+  }
 
   @override
   void dispose() {
@@ -107,8 +34,8 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
     super.dispose();
   }
 
-  List<Transaction> get _filtered {
-    var list = _mockTransactions;
+  List<Transaction> _getFiltered(List<Transaction> transactions) {
+    var list = transactions;
     if (_searchQuery.isNotEmpty) {
       list = list
           .where((t) =>
@@ -130,9 +57,9 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
   }
 
   // Group transactions by date label
-  Map<String, List<Transaction>> get _grouped {
+  Map<String, List<Transaction>> _getGrouped(List<Transaction> transactions) {
     final result = <String, List<Transaction>>{};
-    for (final t in _filtered) {
+    for (final t in _getFiltered(transactions)) {
       final label = _dateLabel(t.timestamp);
       result.putIfAbsent(label, () => []).add(t);
     }
@@ -158,7 +85,8 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final grouped = _grouped;
+    final transactionsState = ref.watch(providers.transactionsProvider);
+    final grouped = _getGrouped(transactionsState.transactions);
 
     return Scaffold(
       backgroundColor: kBackground,
@@ -173,6 +101,11 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
             : null,
         automaticallyImplyLeading: false,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.bug_report_outlined,
+                color: kWarning, size: 20),
+            onPressed: () => _showDebugProcessDialog(context),
+          ),
           IconButton(
             icon: const Icon(Icons.calendar_today_outlined,
                 color: kTextSecondary, size: 20),
@@ -229,7 +162,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: Row(
-                    children: _filters.map((f) => _buildFilterPill(f)).toList(),
+                    children: _filters.map((f) => _buildFilterPill(f, transactionsState.transactions)).toList(),
                   ),
                 ),
               ],
@@ -308,10 +241,10 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
     );
   }
 
-  Widget _buildFilterPill(String label) {
+  Widget _buildFilterPill(String label, List<Transaction> transactions) {
     final isActive = _selectedFilter == label;
     final pendingCount = label == 'Pending'
-        ? _mockTransactions.where((t) => t.requiresReview).length
+        ? transactions.where((t) => t.requiresReview).length
         : 0;
 
     return GestureDetector(
@@ -357,6 +290,57 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
             ],
           ],
         ),
+      ),
+    );
+  }
+
+  void _showDebugProcessDialog(BuildContext context) {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Debug: Process Notification'),
+        content: TextField(
+          controller: controller,
+          maxLines: 5,
+          decoration: const InputDecoration(
+            hintText: 'Paste bank notification text here...',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final text = controller.text.trim();
+              if (text.isEmpty) return;
+              
+              final pipeline = ref.read(notificationPipelineServiceProvider);
+              final success = await pipeline.processNotificationText(
+                packageName: 'manual.debug',
+                text: text,
+                forceProcess: true,
+              );
+              
+              if (context.mounted) {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(success ? 'Transaction processed!' : 'Failed to process notification'),
+                    backgroundColor: success ? kSuccess : kError,
+                  ),
+                );
+                if (success) {
+                  ref.read(providers.transactionsProvider.notifier).loadTransactions(1);
+                }
+              }
+            },
+            child: const Text('Process'),
+          ),
+        ],
       ),
     );
   }

@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/recurring_rule_providers.dart';
-import '../../providers/account_providers.dart';
 import '../../providers/category_providers.dart';
-import '../../state/accounts_notifier.dart' hide AccountsState, accountsProvider;
 import '../../widgets/loading_widget.dart';
 import '../../widgets/formatted_number_input.dart';
 import '../../../domain/entities/recurring_rule.dart';
 import '../../../main.dart';
+import '../../providers/account_providers.dart';
 
 class AddRecurringRuleScreen extends ConsumerStatefulWidget {
   const AddRecurringRuleScreen({super.key});

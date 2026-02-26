@@ -5,6 +5,7 @@ import '../../../domain/entities/account.dart';
 import '../../../core/utils/currency_utils.dart';
 import '../../../main.dart';
 import '../../providers/account_providers.dart';
+import '../../../core/di/usecase_providers.dart';
 
 class AccountsScreen extends ConsumerStatefulWidget {
   const AccountsScreen({super.key});

@@ -116,3 +116,36 @@ class GetTransactionsRequiringReviewUseCase {
     return await _repository.getTransactionsRequiringReview(profileId);
   }
 }
+
+/// Use case for getting transactions
+class GetTransactionsUseCase {
+  GetTransactionsUseCase(this._repository);
+
+  final ITransactionRepository _repository;
+
+  Future<Result<List<Transaction>, Exception>> call({
+    required int profileId,
+    int? accountId,
+    int? categoryId,
+    int? merchantId,
+    DateTime? startDate,
+    DateTime? endDate,
+    String? type,
+    bool? requiresReview,
+    int? limit,
+    int? offset,
+  }) async {
+    return await _repository.getTransactions(
+      profileId: profileId,
+      accountId: accountId,
+      categoryId: categoryId,
+      merchantId: merchantId,
+      startDate: startDate,
+      endDate: endDate,
+      type: type,
+      requiresReview: requiresReview,
+      limit: limit,
+      offset: offset,
+    );
+  }
+}

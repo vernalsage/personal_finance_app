@@ -14,8 +14,35 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
   TransactionsDao(super.db);
 
   // CRUD Operations
-  Future<Transaction> createTransaction(TransactionsCompanion entry) =>
-      into(transactions).insertReturning(entry);
+  Future<Transaction> createTransaction(TransactionsCompanion entry) {
+    return transaction(() async {
+      final created = await into(transactions).insertReturning(entry);
+
+      // Update account balance
+      if (entry.accountId.present && entry.amountMinor.present && entry.type.present) {
+        final amount = entry.amountMinor.value;
+        final type = entry.type.value;
+
+        // Sign logic: debit/transfer_out are negative hits to balance,
+        // credit/transfer_in are positive hits to balance.
+        // NOTE: Screen usually provides absolute values for manual entry,
+        // but we should be robust.
+        int sign = 1;
+        if (type == 'debit' || type == 'transfer_out') {
+          sign = -1;
+        }
+
+        // We use absolute value from entry and apply sign to be safe, 
+        // OR we trust the entry amount. Let's trust entry amount for now 
+        // but ensure we don't double-negative.
+        final effectiveChange = amount.abs() * sign;
+
+        await _updateAccountBalance(entry.accountId.value, effectiveChange);
+      }
+
+      return created;
+    });
+  }
 
   Future<Transaction?> getTransaction(int id) =>
       (select(transactions)..where((t) => t.id.equals(id))).getSingleOrNull();
@@ -39,8 +66,26 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
     return updated.isNotEmpty ? updated.first : null;
   }
 
-  Future<int> deleteTransaction(int id) =>
-      (delete(transactions)..where((t) => t.id.equals(id))).go();
+  Future<int> deleteTransaction(int id) {
+    return transaction(() async {
+      final transactionToDelete = await getTransaction(id);
+      if (transactionToDelete == null) return 0;
+
+      // Revert balance change
+      int sign = 1;
+      if (transactionToDelete.type == 'debit' || transactionToDelete.type == 'transfer_out') {
+        sign = -1; // Original was negative
+      }
+      
+      // To revert a negative change, we ADD the absolute amount.
+      // To revert a positive change, we SUBTRACT the absolute amount.
+      final revertChange = -(transactionToDelete.amountMinor.abs() * sign);
+
+      await _updateAccountBalance(transactionToDelete.accountId, revertChange);
+
+      return (delete(transactions)..where((t) => t.id.equals(id))).go();
+    });
+  }
 
   // Custom Queries
   Future<List<TransactionWithDetails>> getTransactionsWithDetails({
@@ -196,13 +241,13 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
       if (outEntry.accountId.present && outEntry.amountMinor.present) {
         await _updateAccountBalance(
           outEntry.accountId.value,
-          outEntry.amountMinor.value,
+          -outEntry.amountMinor.value.abs(), // Always subtract for transfer_out
         );
       }
       if (inEntry.accountId.present && inEntry.amountMinor.present) {
         await _updateAccountBalance(
           inEntry.accountId.value,
-          inEntry.amountMinor.value,
+          inEntry.amountMinor.value.abs(), // Always add for transfer_in
         );
       }
       

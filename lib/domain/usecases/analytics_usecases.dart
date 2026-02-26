@@ -1,3 +1,4 @@
+import '../core/result.dart';
 import '../repositories/itransaction_repository.dart';
 import '../repositories/account_repository.dart';
 
@@ -58,7 +59,7 @@ class CalculateCashRunwayUseCase {
   );
 
   final ITransactionRepository _transactionRepository;
-  final IAccountRepository _accountRepository;
+  final AccountRepository _accountRepository;
 
   Future<Result<CashRunway, Exception>> call(
     int profileId, {

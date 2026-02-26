@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../domain/entities/transaction.dart';
 import '../../providers/account_providers.dart';
-import '../../providers/transaction_providers.dart' as providers;
+import '../../../core/di/usecase_providers.dart';
 import '../../../core/utils/currency_utils.dart';
 
 class AddTransactionScreen extends ConsumerStatefulWidget {
@@ -249,7 +249,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
 
       // Submit via use case
       final createTransactionUseCase = ref.read(
-        providers.createTransactionUseCaseProvider,
+        createTransactionUseCaseProvider,
       );
       final result = await createTransactionUseCase(transaction);
 

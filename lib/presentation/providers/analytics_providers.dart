@@ -1,19 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/core/result.dart';
-import '../../domain/repositories/iaccount_repository.dart';
+import '../../domain/repositories/account_repository.dart';
+import '../../domain/repositories/itransaction_repository.dart';
 import '../../domain/usecases/analytics_usecases.dart';
-
-/// Provider for transaction repository (shared)
-final transactionRepositoryProvider = Provider<TransactionRepository>((ref) {
-  // TODO: Implement actual repository
-  throw UnimplementedError('Transaction repository not implemented');
-});
-
-/// Provider for account repository (shared)
-final accountRepositoryProvider = Provider<IAccountRepository>((ref) {
-  // TODO: Implement actual repository
-  throw UnimplementedError('Account repository not implemented');
-});
+import '../../core/di/repository_providers.dart';
 
 /// Provider for get financial overview use case
 final getFinancialOverviewUseCaseProvider =
@@ -39,7 +29,7 @@ class FinancialOverviewState {
   const FinancialOverviewState({
     this.overview,
     this.isLoading = false,
-    this.failureData,
+    this.error,
   });
 
   final FinancialOverview? overview;
@@ -54,7 +44,7 @@ class FinancialOverviewState {
     return FinancialOverviewState(
       overview: overview ?? this.overview,
       isLoading: isLoading ?? this.isLoading,
-      error: error ?? this.failureData,
+      error: error ?? this.error,
     );
   }
 }
@@ -82,7 +72,7 @@ class FinancialOverviewNotifier extends StateNotifier<FinancialOverviewState> {
     if (result.isSuccess) {
       state = state.copyWith(overview: result.successData!, isLoading: false);
     } else {
-      state = state.copyWith(isLoading: false, error: result.failureData);
+      state = state.copyWith(isLoading: false, error: result.failureData?.toString());
     }
   }
 
@@ -102,7 +92,7 @@ final financialOverviewProvider =
 
 /// State for cash runway
 class CashRunwayState {
-  const CashRunwayState({this.cashRunway, this.isLoading = false, this.failureData});
+  const CashRunwayState({this.cashRunway, this.isLoading = false, this.error});
 
   final CashRunway? cashRunway;
   final bool isLoading;
@@ -116,7 +106,7 @@ class CashRunwayState {
     return CashRunwayState(
       cashRunway: cashRunway ?? this.cashRunway,
       isLoading: isLoading ?? this.isLoading,
-      error: error ?? this.failureData,
+      error: error ?? this.error,
     );
   }
 }
@@ -136,7 +126,7 @@ class CashRunwayNotifier extends StateNotifier<CashRunwayState> {
     if (result.isSuccess) {
       state = state.copyWith(cashRunway: result.successData!, isLoading: false);
     } else {
-      state = state.copyWith(isLoading: false, error: result.failureData);
+      state = state.copyWith(isLoading: false, error: result.failureData?.toString());
     }
   }
 

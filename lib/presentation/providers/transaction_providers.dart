@@ -1,74 +1,13 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../data/repositories/transaction_repository_impl.dart';
-import '../../data/database/app_database.dart' hide Transaction;
-import '../../domain/usecases/transaction_usecases.dart';
 import '../../domain/entities/transaction.dart';
-import '../../domain/repositories/itransaction_repository.dart';
-import '../../domain/repositories/merchant_repository.dart';
-import '../../data/repositories/merchant_repository_impl.dart';
-import '../../data/database/daos/merchants_dao.dart';
-import '../../data/database/daos/transactions_dao.dart';
+import '../../domain/usecases/transaction_usecases.dart';
+import '../../core/di/repository_providers.dart';
+import '../../core/di/usecase_providers.dart';
+import 'account_providers.dart';
+import 'budget_providers.dart';
+import 'goal_providers.dart';
 
-/// Provider for database
-final databaseRepositoryProvider = Provider<AppDatabase>((ref) {
-  return AppDatabase();
-});
-
-/// Provider for merchants DAO
-final merchantsDaoProvider = Provider<MerchantsDao>((ref) {
-  final db = ref.read(databaseRepositoryProvider);
-  return MerchantsDao(db);
-});
-
-/// Provider for transactions DAO
-final transactionsDaoProvider = Provider<TransactionsDao>((ref) {
-  final db = ref.read(databaseRepositoryProvider);
-  return TransactionsDao(db);
-});
-
-/// Provider for transaction repository
-final transactionRepositoryProvider = Provider<ITransactionRepository>((ref) {
-  return TransactionRepositoryImpl(ref.read(transactionsDaoProvider));
-});
-
-/// Provider for merchant repository
-final merchantRepositoryProvider = Provider<MerchantRepository>((ref) {
-  return MerchantRepositoryImpl(ref.read(merchantsDaoProvider));
-});
-
-/// Provider for create transaction use case
-final createTransactionUseCaseProvider = Provider<CreateTransactionUseCase>((
-  ref,
-) {
-  return CreateTransactionUseCase(
-    ref.read(transactionRepositoryProvider),
-    ref.read(merchantRepositoryProvider),
-  );
-});
-
-/// Provider for update transaction use case
-final updateTransactionUseCaseProvider = Provider<UpdateTransactionUseCase>((
-  ref,
-) {
-  return UpdateTransactionUseCase(ref.read(transactionRepositoryProvider));
-});
-
-/// Provider for delete transaction use case
-final deleteTransactionUseCaseProvider = Provider<DeleteTransactionUseCase>((
-  ref,
-) {
-  return DeleteTransactionUseCase(ref.read(transactionRepositoryProvider));
-});
-
-/// Provider for get transactions requiring review use case
-final getTransactionsRequiringReviewUseCaseProvider =
-    Provider<GetTransactionsRequiringReviewUseCase>((ref) {
-      return GetTransactionsRequiringReviewUseCase(
-        ref.read(transactionRepositoryProvider),
-      );
-    });
-
-/// State for transactions list
+/// State for transactions management
 class TransactionsState {
   const TransactionsState({
     this.transactions = const [],
@@ -93,47 +32,196 @@ class TransactionsState {
   }
 }
 
-/// Provider for transactions state
+/// Notifier for managing transactions state
 class TransactionsNotifier extends StateNotifier<TransactionsState> {
-  TransactionsNotifier(this._getTransactionsRequiringReviewUseCase)
+  TransactionsNotifier(this._createTransactionUseCase, this._getTransactionsUseCase, this._ref)
     : super(const TransactionsState());
 
-  final GetTransactionsRequiringReviewUseCase
-  _getTransactionsRequiringReviewUseCase;
+  final CreateTransactionUseCase _createTransactionUseCase;
+  final GetTransactionsUseCase _getTransactionsUseCase;
+  final Ref _ref;
+  UpdateTransactionUseCase? _updateTransactionUseCase;
+  DeleteTransactionUseCase? _deleteTransactionUseCase;
+  GetTransactionsRequiringReviewUseCase? _getTransactionsRequiringReviewUseCase;
 
-  Future<void> loadTransactionsRequiringReview(int profileId) async {
-    // Avoid loading if already loading to prevent duplicate requests
-    if (state.isLoading) return;
+  void setUseCases({
+    UpdateTransactionUseCase? updateTransactionUseCase,
+    DeleteTransactionUseCase? deleteTransactionUseCase,
+    GetTransactionsRequiringReviewUseCase? getTransactionsRequiringReviewUseCase,
+  }) {
+    _updateTransactionUseCase = updateTransactionUseCase;
+    _deleteTransactionUseCase = deleteTransactionUseCase;
+    _getTransactionsRequiringReviewUseCase = getTransactionsRequiringReviewUseCase;
+  }
 
+  /// Fetch transactions for a profile
+  Future<void> loadTransactions(
+    int profileId, {
+    int? accountId,
+    int? limit,
+    int? offset,
+  }) async {
     state = state.copyWith(isLoading: true, error: null);
 
-    try {
-      final result = await _getTransactionsRequiringReviewUseCase(profileId);
+    final result = await _getTransactionsUseCase(
+      profileId: profileId,
+      accountId: accountId,
+      limit: limit,
+      offset: offset,
+    );
 
-      if (result.isSuccess) {
-        state = state.copyWith(transactions: result.successData!, isLoading: false);
-      } else {
-        state = state.copyWith(
-          isLoading: false,
-          error: result.failureData?.toString() ?? 'Unknown error',
-        );
-      }
-    } catch (e) {
+    if (result.isSuccess) {
+      state = state.copyWith(transactions: result.successData!, isLoading: false);
+    } else {
       state = state.copyWith(
         isLoading: false,
-        error: 'Failed to load transactions: $e',
+        error: result.failureData?.toString() ?? 'Failed to load transactions',
       );
     }
   }
 
+  /// Fetch transactions requiring review
+  Future<void> loadTransactionsRequiringReview(
+    int profileId, {
+    int? limit,
+    int? offset,
+  }) async {
+    if (_getTransactionsRequiringReviewUseCase == null) {
+      state = state.copyWith(error: 'GetTransactionsRequiringReviewUseCase not initialized');
+      return;
+    }
+
+    state = state.copyWith(isLoading: true, error: null);
+
+    final result = await _getTransactionsRequiringReviewUseCase!(
+      profileId,
+      limit: limit,
+      offset: offset,
+    );
+
+    if (result.isSuccess) {
+      state = state.copyWith(transactions: result.successData!, isLoading: false);
+    } else {
+      state = state.copyWith(
+        isLoading: false,
+        error: result.failureData?.toString() ?? 'Failed to load review items',
+      );
+    }
+  }
+
+  /// Add a new transaction
+  Future<void> addTransaction(Transaction transaction) async {
+    state = state.copyWith(isLoading: true, error: null);
+
+    final result = await _createTransactionUseCase(transaction);
+
+    if (result.isSuccess) {
+      // Invalidate related providers to reflect changes
+      _ref.invalidate(accountsProvider);
+      _ref.invalidate(budgetsProvider);
+      _ref.invalidate(goalsProvider);
+      
+      // Refresh the transactions list
+      await loadTransactions(transaction.profileId);
+    } else {
+      state = state.copyWith(
+        isLoading: false,
+        error: result.failureData?.toString() ?? 'Unknown error',
+      );
+    }
+  }
+
+  /// Update an existing transaction
+  Future<void> updateTransaction(Transaction transaction) async {
+    if (_updateTransactionUseCase == null) {
+      state = state.copyWith(error: 'UpdateTransactionUseCase not initialized');
+      return;
+    }
+
+    state = state.copyWith(isLoading: true, error: null);
+
+    final result = await _updateTransactionUseCase!(transaction);
+
+    if (result.isSuccess) {
+      // Invalidate related providers
+      _ref.invalidate(accountsProvider);
+      _ref.invalidate(budgetsProvider);
+      _ref.invalidate(goalsProvider);
+      
+      // Refresh the transactions list
+      await loadTransactions(transaction.profileId);
+    } else {
+      state = state.copyWith(
+        isLoading: false,
+        error: result.failureData?.toString() ?? 'Unknown error',
+      );
+    }
+  }
+
+  /// Delete a transaction
+  Future<void> deleteTransaction(int transactionId, int profileId) async {
+    if (_deleteTransactionUseCase == null) {
+      state = state.copyWith(error: 'DeleteTransactionUseCase not initialized');
+      return;
+    }
+
+    state = state.copyWith(isLoading: true, error: null);
+
+    final result = await _deleteTransactionUseCase!(transactionId);
+
+    if (result.isSuccess) {
+      // Invalidate related providers
+      _ref.invalidate(accountsProvider);
+      _ref.invalidate(budgetsProvider);
+      _ref.invalidate(goalsProvider);
+      
+      // Refresh the transactions list
+      await loadTransactions(profileId);
+    } else {
+      state = state.copyWith(
+        isLoading: false,
+        error: result.failureData?.toString() ?? 'Unknown error',
+      );
+    }
+  }
+
+  /// Refresh transactions list
+  Future<void> refreshTransactions(int profileId) async {
+    await loadTransactions(profileId);
+  }
+
+  /// Clear any error state
   void clearError() {
     state = state.copyWith(error: null);
   }
 }
 
+/// Provider for transactions state
 final transactionsProvider =
     StateNotifierProvider<TransactionsNotifier, TransactionsState>((ref) {
-      return TransactionsNotifier(
-        ref.read(getTransactionsRequiringReviewUseCaseProvider),
+      final createTransactionUseCase = ref.read(createTransactionUseCaseProvider);
+      
+      // Since GetTransactionsUseCase might not have a standalone provider yet in usecase_providers,
+      // we'll instantiate it here using the repository. 
+      // Actually, let's check if it exists in usecase_providers.dart
+      final getTransactionsUseCase = GetTransactionsUseCase(
+        ref.read(transactionRepositoryProvider),
       );
+      
+      final updateTransactionUseCase = ref.read(updateTransactionUseCaseProvider);
+      final deleteTransactionUseCase = ref.read(deleteTransactionUseCaseProvider);
+      final getTransactionsRequiringReviewUseCase = ref.read(getTransactionsRequiringReviewUseCaseProvider);
+
+      final notifier = TransactionsNotifier(
+        createTransactionUseCase,
+        getTransactionsUseCase,
+        ref,
+      );
+      notifier.setUseCases(
+        updateTransactionUseCase: updateTransactionUseCase,
+        deleteTransactionUseCase: deleteTransactionUseCase,
+        getTransactionsRequiringReviewUseCase: getTransactionsRequiringReviewUseCase,
+      );
+
+      return notifier;
     });

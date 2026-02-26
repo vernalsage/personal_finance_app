@@ -44,11 +44,13 @@ class TransactionParserService {
   static const int _balanceWeight = 10;
   static const int _confidenceThreshold = 80;
 
-  // Regex patterns for Nigerian bank notifications
-  static final RegExp _amountPattern = RegExp(
-    r'(?:NGN\s*|₦\s*)?(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)',
-    caseSensitive: false,
-  );
+  // Patterns for Amount
+  static final List<RegExp> _amountPatterns = [
+    RegExp(r'(?:Amt|Amount|₦|NGN)[:\s]*([\d,]+\.\d{2})', caseSensitive: false),
+    RegExp(r'([\d,]+\.\d{2})\s*(?:DR|CR|Debit|Credit)', caseSensitive: false),
+    RegExp(r'(?:sent|received|paid|withdrawn)\s+(?:NGN\s*|₦\s*)?([\d,]+\.?\d*)', caseSensitive: false),
+    RegExp(r'(?:NGN\s*|₦\s*)([\d,]+\.\d{2})', caseSensitive: false),
+  ];
 
   static final RegExp _creditPattern = RegExp(
     r'\b(credit|cr|deposit|received|inflow|credited)\b',
@@ -60,20 +62,26 @@ class TransactionParserService {
     caseSensitive: false,
   );
 
-  static final RegExp _merchantPattern = RegExp(
-    r'(?:to|from|at|for)\s+([A-Za-z0-9\s&\-\.]+?)(?:\s+(?:on|at|for|via)|$)',
-    caseSensitive: false,
-  );
+  // Patterns for Merchant
+  static final List<RegExp> _merchantPatterns = [
+    RegExp(r'(?:to|from|beneficiary|remitter|merchant)[:\s]*([A-Za-z0-9\s&\-\.]+?)(?:\s*(?:on|at|for|via|date|bal|balance)|[\|]|$)', caseSensitive: false),
+    RegExp(r'(?:desc|description)[:\s]*([A-Za-z0-9\s&\-\.]+?)(?:\s*(?:on|at|for|via|date|bal|balance)|[\|]|$)', caseSensitive: false),
+    RegExp(r'at\s+([A-Za-z0-9\s&\-\.]+?)(?:\s+(?:on|at|for|via)|$)', caseSensitive: false),
+  ];
 
-  static final RegExp _timestampPattern = RegExp(
-    r'(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}|\d{1,2}\s*\d{1,2}\s*\d{2,4}|\d{4}[\/\-\.]\d{1,2}[\/\-\.]\d{1,2})',
-    caseSensitive: false,
-  );
+  // Patterns for Timestamp
+  static final List<RegExp> _timestampPatterns = [
+    RegExp(r'(?:Date|On)[:\s]*(\d{1,2}[\/\-\.][A-Za-z0-9]+[\/\-\.]\d{2,4})', caseSensitive: false),
+    RegExp(r'(?:Date|On)[:\s]*(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})', caseSensitive: false),
+    RegExp(r'(\d{1,2}[\/\-\.][A-Za-z0-9]+[\/\-\.]\d{2,4})', caseSensitive: false),
+    RegExp(r'(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})', caseSensitive: false),
+  ];
 
-  static final RegExp _balancePattern = RegExp(
-    r'(?:balance|bal|available)\s*(?:is\s*)?(?:NGN\s*|₦\s*)?(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)',
-    caseSensitive: false,
-  );
+  // Patterns for Balance
+  static final List<RegExp> _balancePatterns = [
+    RegExp(r'(?:balance|bal|available|new balance)[:\s]*(?:is\s*)?(?:NGN\s*|₦\s*)?([\d,]+\.\d{2})', caseSensitive: false),
+    RegExp(r'bal[:\s]*([\d,]+\.\d{2})', caseSensitive: false),
+  ];
 
   /// Parse transaction notification text and return structured result with confidence score
   ParsedTransactionResult parseNotification(String rawText) {
@@ -105,7 +113,6 @@ class TransactionParserService {
         rawText: rawText,
       );
     } catch (e) {
-      // Return a result with 0 confidence if parsing fails
       return ParsedTransactionResult(
         confidenceScore: 0,
         requiresReview: true,
@@ -116,67 +123,80 @@ class TransactionParserService {
 
   /// Extract amount in Kobo (minor units) from NGN text
   int? _extractAmount(String text) {
-    final match = _amountPattern.firstMatch(text);
-    if (match == null) return null;
-
-    final amountStr = match.group(1)!.replaceAll(',', '');
-    final amount = double.tryParse(amountStr);
-    if (amount == null) return null;
-
-    // Convert to Kobo (multiply by 100)
-    return (amount * 100).round();
+    for (final pattern in _amountPatterns) {
+      final match = pattern.firstMatch(text);
+      if (match != null && match.groupCount >= 1) {
+        final amountStr = match.group(1)?.replaceAll(',', '');
+        if (amountStr != null) {
+          final amount = double.tryParse(amountStr);
+          if (amount != null) {
+            return (amount * 100).round();
+          }
+        }
+      }
+    }
+    return null;
   }
 
   /// Extract transaction type (credit/debit) from text
   String? _extractTransactionType(String text) {
-    if (_creditPattern.hasMatch(text)) {
-      return 'credit';
-    } else if (_debitPattern.hasMatch(text)) {
-      return 'debit';
-    }
+    final lowerText = text.toLowerCase();
+    
+    if (_creditPattern.hasMatch(lowerText)) return 'credit';
+    if (_debitPattern.hasMatch(lowerText)) return 'debit';
+
+    if (lowerText.contains('sent to') || lowerText.contains('paid for')) return 'debit';
+    if (lowerText.contains('received from') || lowerText.contains('credited with')) return 'credit';
+
     return null;
   }
 
   /// Extract merchant name from text
   String? _extractMerchant(String text) {
-    final match = _merchantPattern.firstMatch(text);
-    if (match == null) return null;
-
-    var merchant = match.group(1)?.trim();
-    if (merchant == null || merchant.isEmpty) return null;
-
-    // Clean up merchant name
-    merchant = merchant.replaceAll(RegExp(r'\s+'), ' ');
-    merchant = merchant.replaceAll(RegExp(r'[^\w\s&\-\.]'), '');
-
-    // Limit length and capitalize properly
-    if (merchant.length > 50) {
-      merchant = merchant.substring(0, 50).trim();
+    for (final pattern in _merchantPatterns) {
+      final match = pattern.firstMatch(text);
+      if (match != null && match.groupCount >= 1) {
+        var merchant = match.group(1)?.trim();
+        if (merchant != null && merchant.isNotEmpty) {
+          // Clean up merchant name
+          merchant = merchant.replaceAll(RegExp(r'\s+'), ' ');
+          merchant = merchant.replaceAll(RegExp(r'[^\w\s&\-\.]'), '');
+          if (merchant.length > 50) merchant = merchant.substring(0, 50).trim();
+          if (merchant.isNotEmpty) return merchant;
+        }
+      }
     }
-
-    return merchant.isNotEmpty ? merchant : null;
+    return null;
   }
 
   /// Extract timestamp from text
   DateTime? _extractTimestamp(String text) {
-    final match = _timestampPattern.firstMatch(text);
-    if (match == null) return null;
-
-    final dateStr = match.group(1)!;
-    return _parseDateTime(dateStr);
+    for (final pattern in _timestampPatterns) {
+      final match = pattern.firstMatch(text);
+      if (match != null && match.groupCount >= 1) {
+        final dateStr = match.group(1)!;
+        final date = _parseDateTime(dateStr);
+        if (date != null) return date;
+      }
+    }
+    return null;
   }
 
   /// Extract balance in Kobo from text
   int? _extractBalance(String text) {
-    final match = _balancePattern.firstMatch(text);
-    if (match == null) return null;
-
-    final balanceStr = match.group(1)!.replaceAll(',', '');
-    final balance = double.tryParse(balanceStr);
-    if (balance == null) return null;
-
-    // Convert to Kobo (multiply by 100)
-    return (balance * 100).round();
+    for (final pattern in _balancePatterns) {
+      final match = pattern.firstMatch(text);
+      if (match != null && match.groupCount >= 1) {
+        final balanceStr = match.group(1)?.replaceAll(',', '');
+        if (balanceStr != null) {
+          final balance = double.tryParse(balanceStr);
+          if (balance != null) {
+            return (balance * 100).round();
+          }
+        }
+      }
+    }
+    return null;
   }
 
   /// Calculate confidence score based on extracted fields

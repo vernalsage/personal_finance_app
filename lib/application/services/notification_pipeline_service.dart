@@ -5,6 +5,10 @@ import '../services/transaction_parser_service.dart';
 import '../../platform/notifications/bank_notification_listener.dart';
 import '../../domain/usecases/transaction_usecases.dart';
 import '../../domain/entities/transaction.dart';
+import '../../domain/repositories/inotification_fingerprint_repository.dart';
+import '../../../core/di/usecase_providers.dart';
+import '../../../core/di/repository_providers.dart';
+import '../../application/services/notification_pipeline_service.dart';
 
 /// Service that orchestrates the complete notification parsing pipeline
 class NotificationPipelineService {
@@ -12,11 +16,13 @@ class NotificationPipelineService {
     required this.transactionParserService,
     required this.bankNotificationListener,
     required this.createTransactionUseCase,
+    required this.fingerprintRepository,
   });
 
   final TransactionParserService transactionParserService;
   final BankNotificationListener bankNotificationListener;
   final CreateTransactionUseCase createTransactionUseCase;
+  final INotificationFingerprintRepository fingerprintRepository;
 
   bool _isInitialized = false;
   final StreamController<String> _statusController =
@@ -65,6 +71,15 @@ class NotificationPipelineService {
         return false;
       }
 
+      // Check for duplicates unless forced
+      if (!forceProcess && parsedResult.fingerprint != null) {
+        final existingResult = await fingerprintRepository.exists(parsedResult.fingerprint!);
+        if (existingResult.isSuccess && existingResult.successData == true) {
+          _statusController.add('Duplicate notification detected (fingerprint-match). Skipping.');
+          return false;
+        }
+      }
+
       // Create transaction entity
       final transaction = await _createTransactionFromParsedResult(
         parsedResult,
@@ -78,6 +93,16 @@ class NotificationPipelineService {
       final result = await createTransactionUseCase(transaction);
 
       if (result.isSuccess) {
+        final createdTransaction = result.successData!;
+        
+        // Mark as processed to prevent duplicates in the future
+        if (parsedResult.fingerprint != null) {
+          await fingerprintRepository.markAsProcessed(
+            parsedResult.fingerprint!,
+            transactionId: createdTransaction.id,
+          );
+        }
+
         _statusController.add(
           'Transaction created successfully (confidence: ${parsedResult.confidenceScore}%)',
         );
@@ -137,7 +162,9 @@ class NotificationPipelineService {
   Future<bool> requestNotificationPermission() async {
     try {
       _statusController.add('Requesting notification listener permission...');
-      final granted = await bankNotificationListener.requestPermission();
+      await bankNotificationListener.requestPermission();
+      
+      final granted = await bankNotificationListener.isPermissionGranted();
 
       if (granted) {
         _statusController.add('Notification listener permission granted');
@@ -172,30 +199,15 @@ class NotificationPipelineService {
 final notificationPipelineServiceProvider = Provider<NotificationPipelineService>((
   ref,
 ) {
-  // Using placeholder implementations for MVP - these should be replaced with proper DI
   final transactionParserService = TransactionParserService();
-
-  // For MVP, using placeholder implementations
-  final createTransactionUseCase = CreateTransactionUseCase(
-    // Placeholder repository for MVP - will be implemented later
-    throw UnimplementedError(
-      'Transaction repository provider not implemented - MVP placeholder',
-    ),
-    // Placeholder merchant repository for MVP - will be implemented later
-    throw UnimplementedError(
-      'Merchant repository provider not implemented - MVP placeholder',
-    ),
-  );
-
-  final bankNotificationListener = BankNotificationListener(
-    transactionParserService: transactionParserService,
-    createTransactionUseCase: createTransactionUseCase,
-    localNotifications: FlutterLocalNotificationsPlugin(),
-  );
+  final bankNotificationListener = ref.read(bankNotificationListenerProvider);
+  final createTransactionUseCase = ref.read(createTransactionUseCaseProvider);
+  final fingerprintRepository = ref.read(notificationFingerprintRepositoryProvider);
 
   return NotificationPipelineService(
     transactionParserService: transactionParserService,
     bankNotificationListener: bankNotificationListener,
     createTransactionUseCase: createTransactionUseCase,
+    fingerprintRepository: fingerprintRepository,
   );
 });
