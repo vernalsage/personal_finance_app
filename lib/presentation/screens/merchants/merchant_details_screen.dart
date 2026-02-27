@@ -116,7 +116,7 @@ class MerchantDetailsScreen extends ConsumerWidget {
         padding: const EdgeInsets.all(32),
         child: Column(
           children: [
-            Icon(Icons.receipt_long_outlined, size: 48, color: kTextSecondary.withOpacity(0.5)),
+            Icon(Icons.receipt_long_outlined, size: 48, color: kTextSecondary.withValues(alpha: 0.5)),
             const SizedBox(height: 8),
             Text('No transactions found', style: Theme.of(context).textTheme.bodyMedium),
           ],

@@ -19,7 +19,7 @@ class LockScreen extends ConsumerWidget {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              kPrimary.withOpacity(0.05),
+              kPrimary.withValues(alpha: 0.05),
               kBackground,
             ],
           ),
@@ -33,10 +33,10 @@ class LockScreen extends ConsumerWidget {
               decoration: BoxDecoration(
                 color: kSurface,
                 shape: BoxShape.circle,
-                border: Border.all(color: kBorder.withOpacity(0.5)),
+                border: Border.all(color: kBorder.withValues(alpha: 0.5)),
                 boxShadow: [
                   BoxShadow(
-                    color: kPrimary.withOpacity(0.1),
+                    color: kPrimary.withValues(alpha: 0.1),
                     blurRadius: 20,
                     spreadRadius: 5,
                   ),
@@ -92,7 +92,7 @@ class LockScreen extends ConsumerWidget {
               },
               child: Text(
                 'Use Alternative Method',
-                style: TextStyle(color: kPrimary.withOpacity(0.7)),
+                style: TextStyle(color: kPrimary.withValues(alpha: 0.7)),
               ),
             ),
           ],

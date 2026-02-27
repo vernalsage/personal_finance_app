@@ -54,7 +54,7 @@ class GoalsScreen extends ConsumerWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.flag_outlined, size: 64, color: kTextSecondary.withOpacity(0.5)),
+          Icon(Icons.flag_outlined, size: 64, color: kTextSecondary.withValues(alpha: 0.5)),
           const SizedBox(height: 16),
           Text(
             'No financial goals set yet',

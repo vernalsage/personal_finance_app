@@ -54,7 +54,7 @@ class BudgetsScreen extends ConsumerWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.pie_chart_outline, size: 64, color: kTextSecondary.withOpacity(0.5)),
+          Icon(Icons.pie_chart_outline, size: 64, color: kTextSecondary.withValues(alpha: 0.5)),
           const SizedBox(height: 16),
           Text(
             'No budgets found for this month',

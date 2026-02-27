@@ -69,7 +69,7 @@ class MerchantsScreen extends ConsumerWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.storefront_outlined, size: 64, color: kTextSecondary.withOpacity(0.5)),
+          Icon(Icons.storefront_outlined, size: 64, color: kTextSecondary.withValues(alpha: 0.5)),
           const SizedBox(height: 16),
           Text(
             'No merchants tracked yet',

@@ -20,7 +20,7 @@ class _TransferScreenState extends ConsumerState<TransferScreen> {
   int? _toAccountId;
   bool _isProcessing = false;
   double? _conversionRate;
-  final bool _isConverting = false;
+  bool _isConverting = false;
 
   @override
   void dispose() {

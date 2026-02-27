@@ -204,7 +204,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               Text(
                 'Total Balance',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Colors.white.withOpacity(0.8),
+                  color: Colors.white.withValues(alpha: 0.8),
                 ),
               ),
               GestureDetector(
@@ -213,7 +213,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   _balanceVisible
                       ? Icons.visibility_outlined
                       : Icons.visibility_off_outlined,
-                  color: Colors.white.withOpacity(0.8),
+                  color: Colors.white.withValues(alpha: 0.8),
                   size: 20,
                 ),
               ),
@@ -291,9 +291,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: kWarning.withOpacity(0.08),
+          color: kWarning.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: kWarning.withOpacity(0.3)),
+          border: Border.all(color: kWarning.withValues(alpha: 0.3)),
         ),
         child: Row(
           children: [
@@ -423,7 +423,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       ),
       child: Column(
         children: [
-          Icon(icon, size: 40, color: color.withOpacity(0.5)),
+          Icon(icon, size: 40, color: color.withValues(alpha: 0.5)),
           const SizedBox(height: 8),
           Text(message, style: Theme.of(context).textTheme.bodyMedium),
         ],
@@ -579,7 +579,7 @@ class _DashboardTransactionRow extends StatelessWidget {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: iconColor.withOpacity(0.1),
+              color: iconColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(_getCategoryIcon(transaction.description),
