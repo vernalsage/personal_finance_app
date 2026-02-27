@@ -3,6 +3,7 @@ import '../mappers/transaction_mapper.dart';
 import '../mappers/account_mapper.dart';
 import '../mappers/category_mapper.dart';
 import '../mappers/merchant_mapper.dart';
+import '../../domain/entities/account.dart' as domain_account;
 import '../../domain/repositories/itransaction_repository.dart';
 import '../../domain/core/result.dart';
 import '../../domain/entities/transaction.dart' as domain;
@@ -69,6 +70,7 @@ class TransactionRepositoryImpl implements ITransactionRepository {
     int? offset,
   }) async {
     try {
+      print('DEBUG: TransactionRepositoryImpl.getTransactions(profileId: $profileId, accountId: $accountId)');
       final transactions = await _transactionsDao.getTransactionsWithDetails(
         profileId: profileId,
         accountId: accountId,
@@ -78,11 +80,13 @@ class TransactionRepositoryImpl implements ITransactionRepository {
         endDate: endDate,
         requiresReview: requiresReview,
       );
+      print('DEBUG: TransactionRepositoryImpl.getTransactions result count: ${transactions.length}');
       final domainTransactions = transactions
           .map((detail) => detail.transaction.toEntity())
           .toList();
       return Success(domainTransactions);
     } catch (e) {
+      print('DEBUG: TransactionRepositoryImpl.getTransactions error: $e');
       return Failure(Exception('Failed to get transactions: $e'));
     }
   }
@@ -133,13 +137,13 @@ class TransactionRepositoryImpl implements ITransactionRepository {
     required int profileId,
     required int fromAccountId,
     required int toAccountId,
-    required int amountMinor,
+    required int fromAmountMinor,
+    required int toAmountMinor,
     required String description,
     required DateTime timestamp,
     String? note,
   }) async {
     try {
-      // For now, this is sequential. Phase 2 will make this atomic in the DAO.
       final transferId = timestamp.millisecondsSinceEpoch.toString();
 
       final outTransaction = domain.Transaction(
@@ -148,7 +152,7 @@ class TransactionRepositoryImpl implements ITransactionRepository {
         accountId: fromAccountId,
         categoryId: 1, // Default/Transfer category
         merchantId: 1, // System merchant
-        amountMinor: -amountMinor,
+        amountMinor: -fromAmountMinor,
         type: 'transfer_out',
         description: description,
         timestamp: timestamp,
@@ -164,7 +168,7 @@ class TransactionRepositoryImpl implements ITransactionRepository {
         accountId: toAccountId,
         categoryId: 1,
         merchantId: 1,
-        amountMinor: amountMinor,
+        amountMinor: toAmountMinor,
         type: 'transfer_in',
         description: description,
         timestamp: timestamp,
@@ -311,9 +315,21 @@ class TransactionRepositoryImpl implements ITransactionRepository {
           );
 
       final result = transactionsWithDetails.map((detail) {
+        // Provide a dummy account if the join failed, though this indicates broken references
+        final mappedAccount = detail.account?.toEntity() ?? 
+            domain_account.Account(
+              id: 0,
+              profileId: detail.transaction.profileId,
+              name: 'Unknown Account',
+              currency: 'NGN',
+              balanceMinor: 0,
+              type: 'unknown',
+              isActive: false,
+            );
+
         return TransactionWithJoinedDetails(
           transaction: detail.transaction.toEntity(),
-          account: detail.account.toEntity(),
+          account: mappedAccount,
           category: detail.category?.toEntity(),
           merchant: detail.merchant?.toEntity(),
         );

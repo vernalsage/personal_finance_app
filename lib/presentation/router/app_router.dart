@@ -23,7 +23,7 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
     DashboardScreen(),
     AccountsScreen(),
     InsightsScreen(),
-    TransactionsScreen(),
+    TransactionsScreen(initialFilter: 'All'),
     SettingsScreen(),
   ];
 

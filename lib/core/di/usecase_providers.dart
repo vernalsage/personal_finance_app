@@ -35,7 +35,10 @@ final deleteBudgetUseCaseProvider = Provider<DeleteBudgetUseCase>((ref) {
 
 /// Provider for ExecuteTransferUseCase
 final executeTransferUseCaseProvider = Provider<ExecuteTransferUseCase>((ref) {
-  return ExecuteTransferUseCase(ref.watch(transactionRepositoryProvider));
+  return ExecuteTransferUseCase(
+    ref.watch(transactionRepositoryProvider),
+    ref.watch(accountRepositoryProvider),
+  );
 });
 
 /// Provider for GetGoalsUseCase

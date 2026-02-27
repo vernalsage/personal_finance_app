@@ -50,9 +50,9 @@ class AccountsNotifier extends StateNotifier<AccountsState> {
     bool? isActive,
     String? type,
   }) async {
-    // Avoid loading if already loading to prevent duplicate requests
-    if (state.isLoading) return;
-
+    // Only block if we already have the EXACT same request running
+    // Invalidation requires us to fetch again.
+    
     state = state.copyWith(isLoading: true, error: null);
 
     try {
@@ -63,7 +63,8 @@ class AccountsNotifier extends StateNotifier<AccountsState> {
       );
 
       if (result.isSuccess) {
-        state = state.copyWith(accounts: result.successData!, isLoading: false);
+        // Create a new list instance to force UI rebuilds
+        state = state.copyWith(accounts: List.unmodifiable(result.successData!), isLoading: false);
       } else {
         state = state.copyWith(
           isLoading: false,

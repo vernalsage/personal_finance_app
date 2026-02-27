@@ -55,28 +55,18 @@ class TransactionsNotifier extends StateNotifier<TransactionsState> {
   }
 
   /// Fetch transactions for a profile
-  Future<void> loadTransactions(
-    int profileId, {
-    int? accountId,
-    int? limit,
-    int? offset,
-  }) async {
+  Future<void> loadTransactions(int profileId, {int? accountId, int limit = 50, int offset = 0}) async {
     state = state.copyWith(isLoading: true, error: null);
-
-    final result = await _getTransactionsUseCase(
-      profileId: profileId,
-      accountId: accountId,
-      limit: limit,
-      offset: offset,
-    );
-
-    if (result.isSuccess) {
-      state = state.copyWith(transactions: result.successData!, isLoading: false);
-    } else {
-      state = state.copyWith(
-        isLoading: false,
-        error: result.failureData?.toString() ?? 'Failed to load transactions',
-      );
+    try {
+      final result = await _getTransactionsUseCase(profileId: profileId, accountId: accountId, limit: limit, offset: offset);
+      
+      if (result.isSuccess) {
+        state = state.copyWith(transactions: result.successData!, isLoading: false);
+      } else {
+        state = state.copyWith(error: result.failureData.toString(), isLoading: false);
+      }
+    } catch (e, stack) {
+      state = state.copyWith(error: e.toString(), isLoading: false);
     }
   }
 
@@ -116,8 +106,8 @@ class TransactionsNotifier extends StateNotifier<TransactionsState> {
     final result = await _createTransactionUseCase(transaction);
 
     if (result.isSuccess) {
-      // Invalidate related providers to reflect changes
-      _ref.invalidate(accountsProvider);
+      // Refresh related providers to reflect changes immediately
+      await _ref.read(accountsProvider.notifier).loadAccounts(transaction.profileId);
       _ref.invalidate(budgetsProvider);
       _ref.invalidate(goalsProvider);
       
@@ -143,8 +133,8 @@ class TransactionsNotifier extends StateNotifier<TransactionsState> {
     final result = await _updateTransactionUseCase!(transaction);
 
     if (result.isSuccess) {
-      // Invalidate related providers
-      _ref.invalidate(accountsProvider);
+      // Refresh related providers
+      await _ref.read(accountsProvider.notifier).loadAccounts(transaction.profileId);
       _ref.invalidate(budgetsProvider);
       _ref.invalidate(goalsProvider);
       
@@ -170,8 +160,8 @@ class TransactionsNotifier extends StateNotifier<TransactionsState> {
     final result = await _deleteTransactionUseCase!(transactionId);
 
     if (result.isSuccess) {
-      // Invalidate related providers
-      _ref.invalidate(accountsProvider);
+      // Refresh related providers
+      await _ref.read(accountsProvider.notifier).loadAccounts(profileId);
       _ref.invalidate(budgetsProvider);
       _ref.invalidate(goalsProvider);
       

@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:collection/collection.dart';
 import '../../../domain/entities/transaction.dart';
 import '../../providers/account_providers.dart';
-import '../../../core/di/usecase_providers.dart';
+import '../../providers/transaction_providers.dart' as providers;
 import '../../../core/utils/currency_utils.dart';
 
 class AddTransactionScreen extends ConsumerStatefulWidget {
@@ -62,7 +63,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
                     return DropdownMenuItem<int>(
                       value: account.id,
                       child: Text(
-                        '${account.name} (${CurrencyUtils.formatMinorToDisplay(account.balanceMinor)})',
+                        '${account.name} (${CurrencyUtils.formatMinorToDisplay(account.balanceMinor, account.currency)})',
                       ),
                     );
                   }).toList(),
@@ -123,31 +124,41 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
                 const SizedBox(height: 24),
 
                 // Amount Field
-                Text('Amount', style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 8),
-                TextFormField(
-                  controller: _amountController,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  decoration: InputDecoration(
-                    labelText: 'Amount (₦)',
-                    prefixText: '₦',
-                    border: const OutlineInputBorder(),
-                  ),
-                  inputFormatters: [
-                    FilteringTextInputFormatter.deny(RegExp(r'[^\d.]')),
-                  ],
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter an amount';
-                    }
-                    if (!CurrencyUtils.isValidAmount(value)) {
-                      return 'Please enter a valid amount';
-                    }
-                    return null;
-                  },
-                ),
+                (){
+                  final selectedAccount = accountsState.accounts.firstWhereOrNull((a) => a.id == _selectedAccountId);
+                  final currency = selectedAccount?.currency ?? 'NGN';
+                  final symbol = CurrencyUtils.getCurrencySymbol(currency);
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Amount', style: Theme.of(context).textTheme.titleMedium),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: _amountController,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        decoration: InputDecoration(
+                          labelText: 'Amount ($symbol)',
+                          prefixText: symbol,
+                          border: const OutlineInputBorder(),
+                        ),
+                        inputFormatters: [
+                          FilteringTextInputFormatter.deny(RegExp(r'[^\d.]')),
+                        ],
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter an amount';
+                          }
+                          if (!CurrencyUtils.isValidAmount(value)) {
+                            return 'Please enter a valid amount';
+                          }
+                          return null;
+                        },
+                      ),
+                    ],
+                  );
+                }(),
                 const SizedBox(height: 24),
 
                 // Merchant Field
@@ -247,14 +258,13 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
             : null,
       );
 
-      // Submit via use case
-      final createTransactionUseCase = ref.read(
-        createTransactionUseCaseProvider,
-      );
-      final result = await createTransactionUseCase(transaction);
+      // Submit via notifier for reactive sync across all providers
+      await ref.read(providers.transactionsProvider.notifier).addTransaction(transaction);
+      
+      final transactionsState = ref.read(providers.transactionsProvider);
 
       if (mounted) {
-        if (result.isSuccess) {
+        if (transactionsState.error == null) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Transaction added successfully'),
@@ -270,7 +280,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Error: ${result.failureData?.toString()}'),
+              content: Text('Error: ${transactionsState.error}'),
               backgroundColor: Colors.red,
             ),
           );

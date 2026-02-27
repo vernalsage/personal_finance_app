@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import '../../../domain/entities/transaction.dart';
 import '../../../core/utils/currency_utils.dart';
 import '../../../main.dart';
 import '../../providers/transaction_providers.dart' as providers;
-import '../../../application/services/notification_pipeline_service.dart';
+import '../../providers/account_providers.dart';
+import 'package:collection/collection.dart';
 
 
 class TransactionsScreen extends ConsumerStatefulWidget {
-  const TransactionsScreen({super.key});
+  final String? initialFilter;
+  const TransactionsScreen({super.key, this.initialFilter});
 
   @override
   ConsumerState<TransactionsScreen> createState() => _TransactionsScreenState();
@@ -16,13 +19,14 @@ class TransactionsScreen extends ConsumerStatefulWidget {
 
 class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
   final _searchController = TextEditingController();
-  String _selectedFilter = 'All';
+  late String _selectedFilter;
   String _searchQuery = '';
   final List<String> _filters = ['All', 'Credits', 'Debits', 'Pending'];
 
   @override
   void initState() {
     super.initState();
+    _selectedFilter = widget.initialFilter ?? 'All';
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(providers.transactionsProvider.notifier).loadTransactions(1);
     });
@@ -69,18 +73,16 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
   String _dateLabel(DateTime dt) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final txDay = DateTime(dt.year, dt.month, dt.day);
-    final diff = today.difference(txDay).inDays;
-    if (diff == 0) {
-      const months = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
-      return 'TODAY, ${months[dt.month - 1]} ${dt.day}';
-    } else if (diff == 1) {
-      const months = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
-      return 'YESTERDAY, ${months[dt.month - 1]} ${dt.day}';
-    } else {
-      const months = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
-      return '${months[dt.month - 1]} ${dt.day}';
-    }
+    final yesterday = today.subtract(const Duration(days: 1));
+    final transactionDate = DateTime(dt.year, dt.month, dt.day);
+
+    final isToday = transactionDate.isAtSameMomentAs(today);
+    final isYesterday = transactionDate.isAtSameMomentAs(yesterday);
+    
+    final formatted = DateFormat('MMM d').format(dt).toUpperCase();
+    if (isToday) return 'TODAY, $formatted';
+    if (isYesterday) return 'YESTERDAY, $formatted';
+    return formatted;
   }
 
   @override
@@ -101,11 +103,6 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
             : null,
         automaticallyImplyLeading: false,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.bug_report_outlined,
-                color: kWarning, size: 20),
-            onPressed: () => _showDebugProcessDialog(context),
-          ),
           IconButton(
             icon: const Icon(Icons.calendar_today_outlined,
                 color: kTextSecondary, size: 20),
@@ -172,23 +169,53 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
 
           // ─── Transaction List ──────────────────────────────────────────────
           Expanded(
-            child: grouped.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.receipt_long_outlined,
-                            size: 56, color: kBorder),
-                        const SizedBox(height: 12),
-                        Text('No transactions found',
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodyLarge
-                                ?.copyWith(color: kTextSecondary)),
-                      ],
-                    ),
+            child: transactionsState.isLoading
+                ? const Center(
+                    child: CircularProgressIndicator(color: kPrimary),
                   )
-                : ListView.builder(
+                : transactionsState.error != null
+                    ? Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.error_outline, size: 48, color: kError),
+                            const SizedBox(height: 12),
+                            Text('Error: ${transactionsState.error}',
+                                style: Theme.of(context).textTheme.bodyMedium),
+                            TextButton(
+                              onPressed: () => ref
+                                  .read(providers.transactionsProvider.notifier)
+                                  .loadTransactions(1),
+                              child: const Text('Try Again'),
+                            ),
+                          ],
+                        ),
+                      )
+                    : grouped.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.receipt_long_outlined,
+                                    size: 56, color: kBorder),
+                                const SizedBox(height: 12),
+                                Text(
+                                    _selectedFilter == 'All'
+                                        ? 'No transactions found'
+                                        : 'No $_selectedFilter transactions found',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodyLarge
+                                        ?.copyWith(color: kTextSecondary)),
+                                if (_selectedFilter != 'All')
+                                  TextButton(
+                                    onPressed: () => setState(() => _selectedFilter = 'All'),
+                                    child: const Text('Clear Filters'),
+                                  ),
+                              ],
+                            ),
+                          )
+                        : ListView.builder(
                     padding: const EdgeInsets.only(top: 8, bottom: 80),
                     itemCount: grouped.length,
                     itemBuilder: (context, gi) {
@@ -293,72 +320,26 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
       ),
     );
   }
-
-  void _showDebugProcessDialog(BuildContext context) {
-    final controller = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Debug: Process Notification'),
-        content: TextField(
-          controller: controller,
-          maxLines: 5,
-          decoration: const InputDecoration(
-            hintText: 'Paste bank notification text here...',
-            border: OutlineInputBorder(),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final text = controller.text.trim();
-              if (text.isEmpty) return;
-              
-              final pipeline = ref.read(notificationPipelineServiceProvider);
-              final success = await pipeline.processNotificationText(
-                packageName: 'manual.debug',
-                text: text,
-                forceProcess: true,
-              );
-              
-              if (context.mounted) {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(success ? 'Transaction processed!' : 'Failed to process notification'),
-                    backgroundColor: success ? kSuccess : kError,
-                  ),
-                );
-                if (success) {
-                  ref.read(providers.transactionsProvider.notifier).loadTransactions(1);
-                }
-              }
-            },
-            child: const Text('Process'),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 // ─── Transaction Card (row) ────────────────────────────────────────────────────
 
-class _TransactionCard extends StatelessWidget {
+class _TransactionCard extends ConsumerWidget {
   final Transaction transaction;
   const _TransactionCard({required this.transaction});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final isCredit = transaction.amountMinor >= 0;
     final amountColor = isCredit ? kSuccess : kError;
     final iconColor = _getCategoryColor(transaction.description);
+    
+    // Get currency from accounts provider
+    final accountsState = ref.watch(accountsProvider);
+    final account = accountsState.accounts.firstWhereOrNull((a) => a.id == transaction.accountId);
+    final currency = account?.currency ?? 'NGN';
     final amount = CurrencyUtils.formatMinorToDisplay(
-        transaction.amountMinor.abs(), 'NGN');
+        transaction.amountMinor.abs(), currency);
 
     return InkWell(
       onTap: () {},
@@ -372,7 +353,7 @@ class _TransactionCard extends StatelessWidget {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: iconColor.withOpacity(0.12),
+                color: iconColor.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(_getCategoryIcon(transaction.description),
@@ -397,6 +378,8 @@ class _TransactionCard extends StatelessWidget {
                         .textTheme
                         .bodySmall
                         ?.copyWith(color: kTextSecondary),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),

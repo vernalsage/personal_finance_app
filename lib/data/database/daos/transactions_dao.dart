@@ -16,28 +16,27 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
   // CRUD Operations
   Future<Transaction> createTransaction(TransactionsCompanion entry) {
     return transaction(() async {
-      final created = await into(transactions).insertReturning(entry);
-
-      // Update account balance
-      if (entry.accountId.present && entry.amountMinor.present && entry.type.present) {
-        final amount = entry.amountMinor.value;
+      // Sign logic: debit/transfer_out are negative hits to balance,
+      // credit/transfer_in are positive hits to balance.
+      int sign = 1;
+      if (entry.type.present) {
         final type = entry.type.value;
-
-        // Sign logic: debit/transfer_out are negative hits to balance,
-        // credit/transfer_in are positive hits to balance.
-        // NOTE: Screen usually provides absolute values for manual entry,
-        // but we should be robust.
-        int sign = 1;
         if (type == 'debit' || type == 'transfer_out') {
           sign = -1;
         }
+      }
 
-        // We use absolute value from entry and apply sign to be safe, 
-        // OR we trust the entry amount. Let's trust entry amount for now 
-        // but ensure we don't double-negative.
-        final effectiveChange = amount.abs() * sign;
+      // Ensure amountMinor is saved with the correct sign in the transactions table
+      final signedAmount = (entry.amountMinor.value.abs() * sign);
+      final entryWithSign = entry.copyWith(
+        amountMinor: Value(signedAmount),
+      );
 
-        await _updateAccountBalance(entry.accountId.value, effectiveChange);
+      final created = await into(transactions).insertReturning(entryWithSign);
+
+      // Update account balance using the same signed amount
+      if (entry.accountId.present) {
+        await _updateAccountBalance(entry.accountId.value, signedAmount);
       }
 
       return created;
@@ -71,15 +70,9 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
       final transactionToDelete = await getTransaction(id);
       if (transactionToDelete == null) return 0;
 
-      // Revert balance change
-      int sign = 1;
-      if (transactionToDelete.type == 'debit' || transactionToDelete.type == 'transfer_out') {
-        sign = -1; // Original was negative
-      }
-      
-      // To revert a negative change, we ADD the absolute amount.
-      // To revert a positive change, we SUBTRACT the absolute amount.
-      final revertChange = -(transactionToDelete.amountMinor.abs() * sign);
+      // Revert balance change: Subtracting the signed amount reverts the change.
+      // e.g. If it was -100 (debit), then -(-100) = +100.
+      final revertChange = -transactionToDelete.amountMinor;
 
       await _updateAccountBalance(transactionToDelete.accountId, revertChange);
 
@@ -98,7 +91,7 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
     bool? requiresReview,
   }) {
     final query = select(transactions).join([
-      innerJoin(accounts, accounts.id.equalsExp(transactions.accountId)),
+      leftOuterJoin(accounts, accounts.id.equalsExp(transactions.accountId)),
       leftOuterJoin(
         categories,
         categories.id.equalsExp(transactions.categoryId),
@@ -131,7 +124,7 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
     return query.map((row) {
       return TransactionWithDetails(
         transaction: row.readTable(transactions),
-        account: row.readTable(accounts),
+        account: row.readTableOrNull(accounts),
         category: row.readTableOrNull(categories),
         merchant: row.readTableOrNull(merchants),
       );
@@ -234,20 +227,31 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
     required TransactionsCompanion inEntry,
   }) async {
     return transaction(() async {
-      final outResult = await into(transactions).insertReturning(outEntry);
-      final inResult = await into(transactions).insertReturning(inEntry);
+      // Ensure amounts are correctly signed in the transactions table
+      final signedOutAmount = -outEntry.amountMinor.value.abs();
+      final signedInAmount = inEntry.amountMinor.value.abs();
+
+      final outEntryWithSign = outEntry.copyWith(
+        amountMinor: Value(signedOutAmount),
+      );
+      final inEntryWithSign = inEntry.copyWith(
+        amountMinor: Value(signedInAmount),
+      );
+
+      final outResult = await into(transactions).insertReturning(outEntryWithSign);
+      final inResult = await into(transactions).insertReturning(inEntryWithSign);
       
       // Update account balances
-      if (outEntry.accountId.present && outEntry.amountMinor.present) {
+      if (outEntry.accountId.present) {
         await _updateAccountBalance(
           outEntry.accountId.value,
-          -outEntry.amountMinor.value.abs(), // Always subtract for transfer_out
+          signedOutAmount,
         );
       }
-      if (inEntry.accountId.present && inEntry.amountMinor.present) {
+      if (inEntry.accountId.present) {
         await _updateAccountBalance(
           inEntry.accountId.value,
-          inEntry.amountMinor.value.abs(), // Always add for transfer_in
+          signedInAmount,
         );
       }
       
@@ -267,13 +271,13 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
 class TransactionWithDetails {
   TransactionWithDetails({
     required this.transaction,
-    required this.account,
+    this.account,
     this.category,
     this.merchant,
   });
 
   final Transaction transaction;
-  final Account account;
+  final Account? account;
   final Category? category;
   final Merchant? merchant;
 }

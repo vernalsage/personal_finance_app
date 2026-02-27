@@ -6,6 +6,7 @@ import 'presentation/providers/security_providers.dart';
 import 'presentation/screens/security/lock_screen.dart';
 import 'package:sqlite3/open.dart';
 import 'package:sqlcipher_flutter_libs/sqlcipher_flutter_libs.dart';
+import 'data/database/app_database_simple.dart';
 
 // ─── Stitch Design System Tokens ───────────────────────────────────────────
 const Color kPrimary = Color(0xFF19AEA7);         // Teal
@@ -21,8 +22,13 @@ const Color kSuccess = Color(0xFF16A34A);         // Green for income
 const Color kError = Color(0xFFDC2626);           // Red for expense
 const Color kWarning = Color(0xFFF59E0B);         // Amber for review
 
+
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize database default data (Profile, Categories, etc.)
+  await AppDatabase().initializeDefaultData();
 
   // Override sqlite3 to use SQLCipher on Android
   open.overrideFor(OperatingSystem.android, openCipherOnAndroid);

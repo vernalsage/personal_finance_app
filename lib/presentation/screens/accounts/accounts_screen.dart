@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../domain/entities/account.dart';
 import '../../../core/utils/currency_utils.dart';
@@ -370,6 +370,7 @@ class AddAccountScreen extends ConsumerStatefulWidget {
 
 class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
   final _nameController = TextEditingController();
+  final _balanceController = TextEditingController();
   String _selectedCurrency = 'USD';
   String _selectedType = 'savings';
   String? _nameError;
@@ -401,12 +402,14 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
       _nameController.text = widget.existingAccount!.name;
       _selectedCurrency = widget.existingAccount!.currency;
       _selectedType = widget.existingAccount!.type;
+      _balanceController.text = (widget.existingAccount!.balanceMinor / 100).toStringAsFixed(2);
     }
   }
 
   @override
   void dispose() {
     _nameController.dispose();
+    _balanceController.dispose();
     super.dispose();
   }
 
@@ -475,6 +478,27 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
                 errorText: _nameError,
               ),
               textCapitalization: TextCapitalization.words,
+            ),
+            const SizedBox(height: 20),
+
+            // ─── Starting Balance ─────────────────────────────────────────
+            Text('Starting Balance',
+                style: Theme.of(context)
+                    .textTheme
+                    .bodyLarge
+                    ?.copyWith(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _balanceController,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+              ],
+              decoration: const InputDecoration(
+                hintText: '0.00',
+                prefixIcon: Icon(Icons.account_balance_wallet_outlined,
+                    color: kTextSecondary, size: 18),
+              ),
             ),
             const SizedBox(height: 20),
 
@@ -724,12 +748,13 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
 
     try {
       if (_isEditing) {
+        final balanceMinor = (double.tryParse(_balanceController.text) ?? 0.0) * 100;
         final updated = Account(
           id: widget.existingAccount!.id,
           profileId: 1,
           name: name,
           currency: _selectedCurrency,
-          balanceMinor: widget.existingAccount!.balanceMinor,
+          balanceMinor: balanceMinor.round(),
           type: _selectedType,
           isActive: true,
         );
@@ -741,12 +766,13 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
           _onError('Update failed: ${result.failureData?.toString()}');
         }
       } else {
+        final balanceMinor = (double.tryParse(_balanceController.text) ?? 0.0) * 100;
         final newAccount = Account(
           id: 0,
           profileId: 1,
           name: name,
           currency: _selectedCurrency,
-          balanceMinor: 0,
+          balanceMinor: balanceMinor.round(),
           type: _selectedType,
           isActive: true,
         );

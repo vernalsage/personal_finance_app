@@ -47,6 +47,8 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase._internal()
     : super(DatabaseConnection.delayed(_openConnection()));
 
+  AppDatabase.forTesting(QueryExecutor executor) : super(executor);
+
   @override
   int get schemaVersion => 1;
 
@@ -88,6 +90,7 @@ class AppDatabase extends _$AppDatabase {
         file,
         setup: (database) {
           database.execute("PRAGMA key = '$key';");
+          database.execute("PRAGMA foreign_keys = ON;");
         },
       ),
     );

@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
+import 'package:collection/collection.dart';
 import '../app_database_simple.dart';
 import '../tables/accounts_table.dart';
 import '../../../application/services/hybrid_currency_service.dart';

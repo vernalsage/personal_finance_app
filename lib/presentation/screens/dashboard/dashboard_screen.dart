@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
+import 'package:collection/collection.dart';
 import '../../../application/services/hybrid_currency_service.dart';
 import '../../../core/utils/currency_utils.dart';
 import '../../../domain/entities/transaction.dart';
+import '../../../domain/entities/account.dart';
 import '../../../main.dart';
 import '../../providers/account_providers.dart';
 import '../../providers/transaction_providers.dart';
@@ -19,10 +22,9 @@ class DashboardScreen extends ConsumerStatefulWidget {
 }
 
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
-  bool _dataLoaded = false;
-  Object? _previousAccounts;
   Future<double>? _totalBalanceFuture;
   bool _balanceVisible = true;
+  List<Account>? _lastAccounts;
 
   @override
   void initState() {
@@ -31,13 +33,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   Future<void> _loadData() async {
-    if (_dataLoaded) return;
     try {
       await Future.wait([
         ref.read(accountsProvider.notifier).loadAccounts(1),
         ref.read(transactionsProvider.notifier).loadTransactions(1, limit: 10),
       ]);
-      if (mounted) setState(() => _dataLoaded = true);
     } catch (e) {
       debugPrint('Error loading dashboard data: $e');
     }
@@ -68,8 +68,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final accountsState = ref.watch(accountsProvider);
     final transactionsState = ref.watch(transactionsProvider);
 
-    if (_previousAccounts != accountsState.accounts) {
-      _previousAccounts = accountsState.accounts;
+    // Recalculate if accounts list actually changed
+    if (_lastAccounts != accountsState.accounts) {
+      _lastAccounts = accountsState.accounts;
       _totalBalanceFuture = _calculateTotalBalance(accountsState.accounts);
     }
 
@@ -81,10 +82,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       body: SafeArea(
         child: RefreshIndicator(
           color: kPrimary,
-          onRefresh: () async {
-            setState(() => _dataLoaded = false);
-            await _loadData();
-          },
+          onRefresh: () => _loadData(),
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -288,7 +286,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   Widget _buildReviewBanner(int count) {
     return GestureDetector(
       onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const TransactionsScreen()),
+        MaterialPageRoute(builder: (_) => const TransactionsScreen(initialFilter: 'Pending')),
       ),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -331,7 +329,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             ),
             TextButton(
               onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const TransactionsScreen()),
+                MaterialPageRoute(builder: (_) => const TransactionsScreen(initialFilter: 'All')),
               ),
               child: const Text('View All'),
             ),
@@ -353,7 +351,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 style: Theme.of(context).textTheme.titleMedium),
             TextButton(
               onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const TransactionsScreen()),
+                MaterialPageRoute(builder: (_) => const TransactionsScreen(initialFilter: 'All')),
               ),
               child: const Text('See all'),
             ),
@@ -397,6 +395,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     _DashboardTransactionRow(
                       transaction: t,
                       accountName: _getAccountName(t.accountId, accountsState),
+                      accountsState: accountsState,
                     ),
                     if (!isLast)
                       const Divider(height: 1, indent: 60, endIndent: 16),
@@ -493,7 +492,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  String _getAccountName(int accountId, dynamic accountsState) {
+  String _getAccountName(int accountId, AccountsState accountsState) {
     return accountsState.accounts
             .where((a) => a.id == accountId)
             .firstOrNull
@@ -526,20 +525,22 @@ class _MetricCard extends StatelessWidget {
         children: [
           Icon(icon, color: kPrimary, size: 18),
           const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label,
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodySmall
-                      ?.copyWith(color: kTextSecondary)),
-              Text(value,
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleMedium
-                      ?.copyWith(fontSize: 14)),
-            ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label,
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodySmall
+                        ?.copyWith(color: kTextSecondary)),
+                Text(value,
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleMedium
+                        ?.copyWith(fontSize: 14)),
+              ],
+            ),
           ),
         ],
       ),
@@ -550,10 +551,12 @@ class _MetricCard extends StatelessWidget {
 class _DashboardTransactionRow extends StatelessWidget {
   final Transaction transaction;
   final String accountName;
+  final AccountsState accountsState;
 
   const _DashboardTransactionRow({
     required this.transaction,
     required this.accountName,
+    required this.accountsState,
   });
 
   @override
@@ -561,8 +564,12 @@ class _DashboardTransactionRow extends StatelessWidget {
     final isCredit = transaction.amountMinor >= 0;
     final amountColor = isCredit ? kSuccess : kError;
     final iconColor = _getCategoryColor(transaction.description);
+    
+    // Get currency from the account
+    final account = accountsState.accounts.firstWhereOrNull((a) => a.id == transaction.accountId);
+    final currency = account?.currency ?? 'NGN';
     final amount = CurrencyUtils.formatMinorToDisplay(
-        transaction.amountMinor.abs(), 'NGN');
+        transaction.amountMinor.abs(), currency);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -592,9 +599,9 @@ class _DashboardTransactionRow extends StatelessWidget {
                 const SizedBox(height: 2),
                 Row(
                   children: [
-                    _Chip(text: _getCategoryName(transaction.description)),
+                    Flexible(child: _Chip(text: _getCategoryName(transaction.description))),
                     const SizedBox(width: 6),
-                    _Chip(text: accountName, isAccount: true),
+                    Flexible(child: _Chip(text: accountName, isAccount: true)),
                   ],
                 ),
               ],
@@ -701,15 +708,12 @@ class _DashboardTransactionRow extends StatelessWidget {
 
   String _formatTime(DateTime dt) {
     final now = DateTime.now();
-    final diff = now.difference(dt);
-    if (diff.inDays == 0) {
-      return 'Today ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')} ${dt.hour < 12 ? 'AM' : 'PM'}';
-    } else if (diff.inDays == 1) {
+    if (dt.year == now.year && dt.month == now.month && dt.day == now.day) {
+      return 'Today ${DateFormat.jm().format(dt)}';
+    } else if (dt.year == now.year && dt.day == now.subtract(const Duration(days: 1)).day) {
       return 'Yesterday';
-    } else {
-      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-      return '${months[dt.month - 1]} ${dt.day}';
     }
+    return DateFormat('MMM d').format(dt);
   }
 }
 
