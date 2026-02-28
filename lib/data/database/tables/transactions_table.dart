@@ -19,9 +19,11 @@ class Transactions extends Table {
       .references(Accounts, #id, onDelete: KeyAction.restrict)();
   
   IntColumn get categoryId => integer()
+      .nullable()
       .references(Categories, #id, onDelete: KeyAction.restrict)();
   
   IntColumn get merchantId => integer()
+      .nullable()
       .references(Merchants, #id, onDelete: KeyAction.setNull)();
   
   IntColumn get amountMinor => integer()(); // CRITICAL: Integer minor units only (Kobo)

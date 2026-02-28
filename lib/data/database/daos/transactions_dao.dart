@@ -57,31 +57,126 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
     if (accountId != null) {
       query.where((t) => t.accountId.equals(accountId));
     }
+    query.orderBy([(t) => OrderingTerm.desc(t.timestamp)]);
     return query.get();
   }
 
   Future<Transaction?> updateTransaction(TransactionsCompanion entry) async {
-    final updated = await update(transactions).writeReturning(entry);
-    return updated.isNotEmpty ? updated.first : null;
+    return transaction(() async {
+      final oldTx = await getTransaction(entry.id.value);
+      if (oldTx == null) return null;
+
+      // 1. Revert old balance
+      await _updateAccountBalance(oldTx.accountId, -oldTx.amountMinor);
+
+      // 2. Prepare new entry with correct sign
+      // Determine sign based on entry type or old type
+      int sign = 1;
+      final type = entry.type.present ? entry.type.value : oldTx.type;
+      if (type == 'debit' || type == 'transfer_out') {
+        sign = -1;
+      }
+
+      int newSignedAmount;
+      if (entry.amountMinor.present) {
+        newSignedAmount = entry.amountMinor.value.abs() * sign;
+      } else {
+        newSignedAmount = oldTx.amountMinor.abs() * sign;
+      }
+
+      final entryWithSign = entry.copyWith(
+        amountMinor: Value(newSignedAmount),
+      );
+
+      // 3. Update transaction record
+      final updatedResult = await (update(transactions)
+            ..where((t) => t.id.equals(entry.id.value)))
+          .writeReturning(entryWithSign);
+      
+      if (updatedResult.isEmpty) return null;
+      final newTx = updatedResult.first;
+
+      // 4. Apply new balance to the (potentially new) account
+      await _updateAccountBalance(newTx.accountId, newTx.amountMinor);
+
+      // 5. Sync linked transfer if applicable
+      if (newTx.transferId != null) {
+        await _syncLinkedTransfer(newTx, entry);
+      }
+
+      return newTx;
+    });
+  }
+
+  Future<void> _syncLinkedTransfer(Transaction tx, TransactionsCompanion entry) async {
+    // Find the sibling transaction
+    final sibling = await (select(transactions)
+          ..where((t) => t.transferId.equals(tx.transferId!) & t.id.equals(tx.id).not()))
+        .getSingleOrNull();
+
+    if (sibling == null) return;
+
+    // Check currencies to decide if we should sync the amount
+    final txAccount = await (select(accounts)..where((a) => a.id.equals(tx.accountId))).getSingle();
+    final siblingAccount = await (select(accounts)..where((a) => a.id.equals(sibling.accountId))).getSingle();
+    final currenciesMatch = txAccount.currency == siblingAccount.currency;
+
+    // Shared fields to sync
+    var siblingUpdate = TransactionsCompanion(
+      timestamp: entry.timestamp.present ? entry.timestamp : Value(tx.timestamp),
+      description: entry.description.present ? entry.description : Value(tx.description),
+      note: entry.note.present ? entry.note : Value(tx.note),
+      categoryId: entry.categoryId.present ? entry.categoryId : Value(tx.categoryId),
+      merchantId: entry.merchantId.present ? entry.merchantId : Value(tx.merchantId),
+    );
+
+    // Only sync amount if currencies match to avoid corrupting conversion rates
+    if (currenciesMatch && entry.amountMinor.present) {
+      siblingUpdate = siblingUpdate.copyWith(amountMinor: Value(-tx.amountMinor));
+    }
+
+    // Revert sibling old balance
+    await _updateAccountBalance(sibling.accountId, -sibling.amountMinor);
+    
+    // Update sibling record
+    await (update(transactions)..where((t) => t.id.equals(sibling.id))).write(siblingUpdate);
+
+    // Apply sibling new balance
+    final updatedSibling = await getTransaction(sibling.id);
+    if (updatedSibling != null) {
+      await _updateAccountBalance(updatedSibling.accountId, updatedSibling.amountMinor);
+    }
   }
 
   Future<int> deleteTransaction(int id) {
     return transaction(() async {
-      final transactionToDelete = await getTransaction(id);
-      if (transactionToDelete == null) return 0;
+      final tx = await getTransaction(id);
+      if (tx == null) return 0;
 
-      // Revert balance change: Subtracting the signed amount reverts the change.
-      // e.g. If it was -100 (debit), then -(-100) = +100.
-      final revertChange = -transactionToDelete.amountMinor;
+      // 1. Revert balance change
+      await _updateAccountBalance(tx.accountId, -tx.amountMinor);
 
-      await _updateAccountBalance(transactionToDelete.accountId, revertChange);
+      // 2. Handle linked transfer
+      if (tx.transferId != null) {
+        final sibling = await (select(transactions)
+              ..where((t) => t.transferId.equals(tx.transferId!) & t.id.equals(id).not()))
+            .getSingleOrNull();
+        
+        if (sibling != null) {
+          // Revert sibling balance
+          await _updateAccountBalance(sibling.accountId, -sibling.amountMinor);
+          // Delete sibling
+          await (delete(transactions)..where((t) => t.id.equals(sibling.id))).go();
+        }
+      }
 
+      // 3. Delete primary transaction
       return (delete(transactions)..where((t) => t.id.equals(id))).go();
     });
   }
 
   // Custom Queries
-  Future<List<TransactionWithDetails>> getTransactionsWithDetails({
+  Future<List<TransactionWithJoinedData>> getTransactionsWithDetails({
     int? profileId,
     int? accountId,
     int? categoryId,
@@ -121,8 +216,10 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
       query.where(transactions.requiresReview.equals(requiresReview));
     }
 
+    query.orderBy([OrderingTerm.desc(transactions.timestamp)]);
+
     return query.map((row) {
-      return TransactionWithDetails(
+      return TransactionWithJoinedData(
         transaction: row.readTable(transactions),
         account: row.readTableOrNull(accounts),
         category: row.readTableOrNull(categories),
@@ -267,9 +364,9 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
   }
 }
 
-/// Transaction with joined details
-class TransactionWithDetails {
-  TransactionWithDetails({
+/// Transaction with joined data from Drift
+class TransactionWithJoinedData {
+  TransactionWithJoinedData({
     required this.transaction,
     this.account,
     this.category,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../domain/entities/transaction_with_details.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/merchant_providers.dart';
 import '../../widgets/loading_widget.dart';
@@ -33,7 +34,7 @@ class MerchantDetailsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildContent(BuildContext context, List<TransactionWithJoinedDetails> transactions) {
+  Widget _buildContent(BuildContext context, List<TransactionWithDetails> transactions) {
     // Calculate stats
     int totalSpentMinor = 0;
     int transactionCount = transactions.length;
@@ -145,12 +146,14 @@ class _StatItem extends StatelessWidget {
 }
 
 class _TransactionRow extends StatelessWidget {
-  final TransactionWithJoinedDetails item;
+  final TransactionWithDetails item;
 
   const _TransactionRow({required this.item});
 
   @override
   Widget build(BuildContext context) {
+    // For Safety, provide a fallback account name
+    final accountName = item.account?.name ?? 'Unknown';
     final amount = CurrencyUtils.formatMinorToDisplay(item.transaction.amountMinor.abs(), 'NGN');
     final isCredit = item.transaction.amountMinor >= 0;
 
@@ -164,7 +167,7 @@ class _TransactionRow extends StatelessWidget {
               children: [
                 Text(item.transaction.description, style: Theme.of(context).textTheme.bodyLarge),
                 Text(
-                  '${_formatDate(item.transaction.timestamp)} • ${item.account.name}',
+                  '${_formatDate(item.transaction.timestamp)} • $accountName',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ],

@@ -2219,9 +2219,9 @@ class $TransactionsTable extends Transactions
   late final GeneratedColumn<int> categoryId = GeneratedColumn<int>(
     'category_id',
     aliasedName,
-    false,
+    true,
     type: DriftSqlType.int,
-    requiredDuringInsert: true,
+    requiredDuringInsert: false,
     defaultConstraints: GeneratedColumn.constraintIsAlways(
       'REFERENCES categories (id) ON DELETE RESTRICT',
     ),
@@ -2233,9 +2233,9 @@ class $TransactionsTable extends Transactions
   late final GeneratedColumn<int> merchantId = GeneratedColumn<int>(
     'merchant_id',
     aliasedName,
-    false,
+    true,
     type: DriftSqlType.int,
-    requiredDuringInsert: true,
+    requiredDuringInsert: false,
     defaultConstraints: GeneratedColumn.constraintIsAlways(
       'REFERENCES merchants (id) ON DELETE SET NULL',
     ),
@@ -2394,16 +2394,12 @@ class $TransactionsTable extends Transactions
         _categoryIdMeta,
         categoryId.isAcceptableOrUnknown(data['category_id']!, _categoryIdMeta),
       );
-    } else if (isInserting) {
-      context.missing(_categoryIdMeta);
     }
     if (data.containsKey('merchant_id')) {
       context.handle(
         _merchantIdMeta,
         merchantId.isAcceptableOrUnknown(data['merchant_id']!, _merchantIdMeta),
       );
-    } else if (isInserting) {
-      context.missing(_merchantIdMeta);
     }
     if (data.containsKey('amount_minor')) {
       context.handle(
@@ -2497,11 +2493,11 @@ class $TransactionsTable extends Transactions
       categoryId: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}category_id'],
-      )!,
+      ),
       merchantId: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}merchant_id'],
-      )!,
+      ),
       amountMinor: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}amount_minor'],
@@ -2547,8 +2543,8 @@ class Transaction extends DataClass implements Insertable<Transaction> {
   final int id;
   final int profileId;
   final int accountId;
-  final int categoryId;
-  final int merchantId;
+  final int? categoryId;
+  final int? merchantId;
   final int amountMinor;
   final String type;
   final String description;
@@ -2561,8 +2557,8 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     required this.id,
     required this.profileId,
     required this.accountId,
-    required this.categoryId,
-    required this.merchantId,
+    this.categoryId,
+    this.merchantId,
     required this.amountMinor,
     required this.type,
     required this.description,
@@ -2578,8 +2574,12 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     map['id'] = Variable<int>(id);
     map['profile_id'] = Variable<int>(profileId);
     map['account_id'] = Variable<int>(accountId);
-    map['category_id'] = Variable<int>(categoryId);
-    map['merchant_id'] = Variable<int>(merchantId);
+    if (!nullToAbsent || categoryId != null) {
+      map['category_id'] = Variable<int>(categoryId);
+    }
+    if (!nullToAbsent || merchantId != null) {
+      map['merchant_id'] = Variable<int>(merchantId);
+    }
     map['amount_minor'] = Variable<int>(amountMinor);
     map['type'] = Variable<String>(type);
     map['description'] = Variable<String>(description);
@@ -2600,8 +2600,12 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       id: Value(id),
       profileId: Value(profileId),
       accountId: Value(accountId),
-      categoryId: Value(categoryId),
-      merchantId: Value(merchantId),
+      categoryId: categoryId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(categoryId),
+      merchantId: merchantId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(merchantId),
       amountMinor: Value(amountMinor),
       type: Value(type),
       description: Value(description),
@@ -2624,8 +2628,8 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       id: serializer.fromJson<int>(json['id']),
       profileId: serializer.fromJson<int>(json['profileId']),
       accountId: serializer.fromJson<int>(json['accountId']),
-      categoryId: serializer.fromJson<int>(json['categoryId']),
-      merchantId: serializer.fromJson<int>(json['merchantId']),
+      categoryId: serializer.fromJson<int?>(json['categoryId']),
+      merchantId: serializer.fromJson<int?>(json['merchantId']),
       amountMinor: serializer.fromJson<int>(json['amountMinor']),
       type: serializer.fromJson<String>(json['type']),
       description: serializer.fromJson<String>(json['description']),
@@ -2643,8 +2647,8 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       'id': serializer.toJson<int>(id),
       'profileId': serializer.toJson<int>(profileId),
       'accountId': serializer.toJson<int>(accountId),
-      'categoryId': serializer.toJson<int>(categoryId),
-      'merchantId': serializer.toJson<int>(merchantId),
+      'categoryId': serializer.toJson<int?>(categoryId),
+      'merchantId': serializer.toJson<int?>(merchantId),
       'amountMinor': serializer.toJson<int>(amountMinor),
       'type': serializer.toJson<String>(type),
       'description': serializer.toJson<String>(description),
@@ -2660,8 +2664,8 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     int? id,
     int? profileId,
     int? accountId,
-    int? categoryId,
-    int? merchantId,
+    Value<int?> categoryId = const Value.absent(),
+    Value<int?> merchantId = const Value.absent(),
     int? amountMinor,
     String? type,
     String? description,
@@ -2674,8 +2678,8 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     id: id ?? this.id,
     profileId: profileId ?? this.profileId,
     accountId: accountId ?? this.accountId,
-    categoryId: categoryId ?? this.categoryId,
-    merchantId: merchantId ?? this.merchantId,
+    categoryId: categoryId.present ? categoryId.value : this.categoryId,
+    merchantId: merchantId.present ? merchantId.value : this.merchantId,
     amountMinor: amountMinor ?? this.amountMinor,
     type: type ?? this.type,
     description: description ?? this.description,
@@ -2776,8 +2780,8 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
   final Value<int> id;
   final Value<int> profileId;
   final Value<int> accountId;
-  final Value<int> categoryId;
-  final Value<int> merchantId;
+  final Value<int?> categoryId;
+  final Value<int?> merchantId;
   final Value<int> amountMinor;
   final Value<String> type;
   final Value<String> description;
@@ -2805,8 +2809,8 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     this.id = const Value.absent(),
     required int profileId,
     required int accountId,
-    required int categoryId,
-    required int merchantId,
+    this.categoryId = const Value.absent(),
+    this.merchantId = const Value.absent(),
     required int amountMinor,
     required String type,
     required String description,
@@ -2817,8 +2821,6 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     this.note = const Value.absent(),
   }) : profileId = Value(profileId),
        accountId = Value(accountId),
-       categoryId = Value(categoryId),
-       merchantId = Value(merchantId),
        amountMinor = Value(amountMinor),
        type = Value(type),
        description = Value(description),
@@ -2859,8 +2861,8 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     Value<int>? id,
     Value<int>? profileId,
     Value<int>? accountId,
-    Value<int>? categoryId,
-    Value<int>? merchantId,
+    Value<int?>? categoryId,
+    Value<int?>? merchantId,
     Value<int>? amountMinor,
     Value<String>? type,
     Value<String>? description,
@@ -9359,8 +9361,8 @@ typedef $$TransactionsTableCreateCompanionBuilder =
       Value<int> id,
       required int profileId,
       required int accountId,
-      required int categoryId,
-      required int merchantId,
+      Value<int?> categoryId,
+      Value<int?> merchantId,
       required int amountMinor,
       required String type,
       required String description,
@@ -9375,8 +9377,8 @@ typedef $$TransactionsTableUpdateCompanionBuilder =
       Value<int> id,
       Value<int> profileId,
       Value<int> accountId,
-      Value<int> categoryId,
-      Value<int> merchantId,
+      Value<int?> categoryId,
+      Value<int?> merchantId,
       Value<int> amountMinor,
       Value<String> type,
       Value<String> description,
@@ -9434,9 +9436,9 @@ final class $$TransactionsTableReferences
         $_aliasNameGenerator(db.transactions.categoryId, db.categories.id),
       );
 
-  $$CategoriesTableProcessedTableManager get categoryId {
-    final $_column = $_itemColumn<int>('category_id')!;
-
+  $$CategoriesTableProcessedTableManager? get categoryId {
+    final $_column = $_itemColumn<int>('category_id');
+    if ($_column == null) return null;
     final manager = $$CategoriesTableTableManager(
       $_db,
       $_db.categories,
@@ -9453,9 +9455,9 @@ final class $$TransactionsTableReferences
         $_aliasNameGenerator(db.transactions.merchantId, db.merchants.id),
       );
 
-  $$MerchantsTableProcessedTableManager get merchantId {
-    final $_column = $_itemColumn<int>('merchant_id')!;
-
+  $$MerchantsTableProcessedTableManager? get merchantId {
+    final $_column = $_itemColumn<int>('merchant_id');
+    if ($_column == null) return null;
     final manager = $$MerchantsTableTableManager(
       $_db,
       $_db.merchants,
@@ -10085,8 +10087,8 @@ class $$TransactionsTableTableManager
                 Value<int> id = const Value.absent(),
                 Value<int> profileId = const Value.absent(),
                 Value<int> accountId = const Value.absent(),
-                Value<int> categoryId = const Value.absent(),
-                Value<int> merchantId = const Value.absent(),
+                Value<int?> categoryId = const Value.absent(),
+                Value<int?> merchantId = const Value.absent(),
                 Value<int> amountMinor = const Value.absent(),
                 Value<String> type = const Value.absent(),
                 Value<String> description = const Value.absent(),
@@ -10115,8 +10117,8 @@ class $$TransactionsTableTableManager
                 Value<int> id = const Value.absent(),
                 required int profileId,
                 required int accountId,
-                required int categoryId,
-                required int merchantId,
+                Value<int?> categoryId = const Value.absent(),
+                Value<int?> merchantId = const Value.absent(),
                 required int amountMinor,
                 required String type,
                 required String description,

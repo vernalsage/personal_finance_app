@@ -2,7 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/di/repository_providers.dart';
 import '../../domain/entities/merchant.dart';
 import '../../domain/core/result.dart';
-import '../../domain/repositories/itransaction_repository.dart';
+import '../../domain/entities/transaction_with_details.dart';
 
 /// Provider for managing the list of merchants
 final merchantsProvider = AsyncNotifierProvider<MerchantsNotifier, List<Merchant>>(
@@ -33,7 +33,7 @@ class MerchantsNotifier extends AsyncNotifier<List<Merchant>> {
 }
 
 /// Provider for merchant-specific transactions and insights
-final merchantTransactionsProvider = FutureProvider.family<List<TransactionWithJoinedDetails>, int>((ref, merchantId) async {
+final merchantTransactionsProvider = FutureProvider.family<List<TransactionWithDetails>, int>((ref, merchantId) async {
   final repository = ref.read(transactionRepositoryProvider);
   final result = await repository.getTransactionsWithDetails(
     profileId: 1,
@@ -43,7 +43,5 @@ final merchantTransactionsProvider = FutureProvider.family<List<TransactionWithJ
     throw result.failureData!;
   }
   
-  // Filter by merchantId manually for now if the DAO doesn't support it directly in getTransactionsWithDetails
-  // (Assuming TransactionsDao.getTransactionsWithDetails supports filtering by merchantId, which I should check)
   return result.successData!.where((t) => t.merchant?.id == merchantId).toList();
 });

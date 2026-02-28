@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+import '../../../domain/entities/budget.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../../providers/insight_providers.dart';
+import '../../providers/analytics_providers.dart';
+import '../../providers/budget_providers.dart';
+import '../../providers/profile_providers.dart';
 import '../../widgets/loading_widget.dart';
 import '../../widgets/error_widget.dart';
 import '../../../core/utils/currency_utils.dart';
@@ -19,22 +23,26 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
   DateTime _endDate = DateTime.now();
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(financialOverviewProvider.notifier).loadFinancialOverview(1);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final breakdownAsync = ref.watch(expenseBreakdownProvider((start: _startDate, end: _endDate)));
     final weeklySpendingAsync = ref.watch(weeklySpendingProvider);
+    final overviewState = ref.watch(financialOverviewProvider);
+    final budgetSummaryAsync = ref.watch(totalBudgetSummaryProvider);
+    final profileAsync = ref.watch(activeProfileProvider);
+    final currency = profileAsync.value?.currency ?? 'NGN';
 
     return Scaffold(
       backgroundColor: kBackground,
       appBar: AppBar(
         title: const Text('Insights'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.calendar_month_outlined),
-            onPressed: () {
-              // TODO: Implement Date Range Picker
-            },
-          ),
-        ],
       ),
       body: CustomScrollView(
         slivers: [
@@ -44,12 +52,17 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildSummaryCards(),
+                  _buildSummaryCards(overviewState, currency),
                   const SizedBox(height: 24),
                   
+                  Text('Budget vs Actual', style: Theme.of(context).textTheme.titleLarge),
+                  const SizedBox(height: 16),
+                  _buildBudgetComparison(budgetSummaryAsync, currency),
+                  
+                  const SizedBox(height: 24),
                   Text('Expense Breakdown', style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 16),
-                  _buildCategoryBreakdown(breakdownAsync),
+                  _buildCategoryBreakdown(breakdownAsync, currency),
                   
                   const SizedBox(height: 24),
                   Text('Weekly Spending', style: Theme.of(context).textTheme.titleLarge),
@@ -66,14 +79,21 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
     );
   }
 
-  Widget _buildSummaryCards() {
-    // This would typically come from a dedicated stats provider
+  Widget _buildSummaryCards(FinancialOverviewState state, String currency) {
+    final overview = state.overview;
+    final expenses = overview != null 
+        ? CurrencyUtils.formatMinorToDisplay(overview.totalExpenses, currency)
+        : '...';
+    final income = overview != null
+        ? CurrencyUtils.formatMinorToDisplay(overview.totalIncome, currency)
+        : '...';
+
     return Row(
       children: [
         Expanded(
           child: _SummaryCard(
             label: 'Total Expenses',
-            value: '₦142,500', // Mock for now or feed from provider
+            value: expenses,
             color: kError,
             icon: Icons.trending_down,
           ),
@@ -82,7 +102,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
         Expanded(
           child: _SummaryCard(
             label: 'Total Income',
-            value: '₦450,000',
+            value: income,
             color: kSuccess,
             icon: Icons.trending_up,
           ),
@@ -91,7 +111,64 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
     );
   }
 
-  Widget _buildCategoryBreakdown(AsyncValue<Map<String, int>> breakdownAsync) {
+  Widget _buildBudgetComparison(AsyncValue<BudgetUsage> summaryAsync, String currency) {
+    return summaryAsync.when(
+      data: (usage) {
+        final percent = usage.usagePercentage / 100.0;
+        final color = usage.isOverBudget ? kError : (usage.isNearLimit ? kWarning : kPrimary);
+        
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: kBorder),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                   const Text('Current Month', style: TextStyle(fontWeight: FontWeight.w500)),
+                   Text('${usage.usagePercentage.toStringAsFixed(1)}%', 
+                    style: TextStyle(color: color, fontWeight: FontWeight.bold)),
+                ],
+              ),
+              const SizedBox(height: 12),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: percent.clamp(0.0, 1.0),
+                  backgroundColor: kBorder,
+                  valueColor: AlwaysStoppedAnimation<Color>(color),
+                  minHeight: 12,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Spent: ${CurrencyUtils.formatMinorToDisplay(usage.spentAmountMinor, currency)}',
+                    style: const TextStyle(fontSize: 12, color: kTextSecondary),
+                  ),
+                  Text(
+                    'Budget: ${CurrencyUtils.formatMinorToDisplay(usage.budgetAmountMinor, currency)}',
+                    style: const TextStyle(fontSize: 12, color: kTextSecondary),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+      loading: () => const SizedBox(height: 100, child: LoadingWidget()),
+      error: (e, __) => Text('Error loading budget summary: $e'),
+    );
+  }
+
+  Widget _buildCategoryBreakdown(AsyncValue<Map<String, int>> breakdownAsync, String currency) {
     return breakdownAsync.when(
       data: (data) {
         if (data.isEmpty) {
@@ -119,6 +196,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                   amount: e.value,
                   percent: (e.value / total * 100).toStringAsFixed(1),
                   color: _getCategoryColor(e.key),
+                  currency: currency,
                 )),
           ],
         );
@@ -254,17 +332,19 @@ class _CategoryLegendItem extends StatelessWidget {
   final int amount;
   final String percent;
   final Color color;
+  final String currency;
 
   const _CategoryLegendItem({
     required this.label,
     required this.amount,
     required this.percent,
     required this.color,
+    required this.currency,
   });
 
   @override
   Widget build(BuildContext context) {
-    final formattedAmount = CurrencyUtils.formatMinorToDisplay(amount, 'NGN');
+    final formattedAmount = CurrencyUtils.formatMinorToDisplay(amount, currency);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(

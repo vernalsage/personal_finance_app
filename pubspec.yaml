@@ -37,6 +37,7 @@ dependencies:
   http: ^1.2.1
   shared_preferences: ^2.3.2
   currency_converter: ^3.0.0
+  share_plus: ^10.1.2
   
   # CSV Export
   csv: ^6.0.0

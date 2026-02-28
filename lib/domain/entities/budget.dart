@@ -72,6 +72,29 @@ class Budget {
   String get formattedPeriod {
     return '${year.toString().padLeft(4, '0')}-${month.toString().padLeft(2, '0')}';
   }
+
+  /// Copy with changes
+  Budget copyWith({
+    int? id,
+    int? profileId,
+    int? categoryId,
+    int? amountMinor,
+    int? month,
+    int? year,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) {
+    return Budget(
+      id: id ?? this.id,
+      profileId: profileId ?? this.profileId,
+      categoryId: categoryId ?? this.categoryId,
+      amountMinor: amountMinor ?? this.amountMinor,
+      month: month ?? this.month,
+      year: year ?? this.year,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
 }
 
 /// Budget with its current usage status

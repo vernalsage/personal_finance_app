@@ -38,5 +38,18 @@ abstract class BudgetRepository {
   Future<Result<BudgetUsage, Exception>> getBudgetUsage(
     int budgetId,
   );
+
+  /// Get total budget summary (spent vs limit) for a given month and year
+  Future<Result<BudgetUsage, Exception>> getTotalBudgetSummary(
+    int profileId,
+    int month,
+    int year,
+  );
+
+  /// Convert all budget limits for a profile to a new currency
+  Future<Result<void, Exception>> convertBudgets(
+    int profileId,
+    double conversionRate,
+  );
 }
 

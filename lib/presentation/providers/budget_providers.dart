@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/di/usecase_providers.dart';
 import '../../domain/entities/budget.dart';
 import '../../domain/core/result.dart';
+import 'profile_providers.dart';
 
 /// Provider for managing the list of budgets with their usage
 final budgetsProvider = AsyncNotifierProvider<BudgetsNotifier, List<BudgetWithUsage>>(
@@ -15,6 +16,10 @@ class BudgetsNotifier extends AsyncNotifier<List<BudgetWithUsage>> {
   }
 
   Future<List<BudgetWithUsage>> _fetchBudgets({int? month, int? year}) async {
+    final profileAsync = ref.read(activeProfileProvider);
+    final profile = profileAsync.value;
+    if (profile == null) return [];
+
     final getBudgets = ref.read(getBudgetsUseCaseProvider);
     final getUsage = ref.read(getBudgetUsageUseCaseProvider);
     
@@ -24,7 +29,7 @@ class BudgetsNotifier extends AsyncNotifier<List<BudgetWithUsage>> {
     final targetYear = year ?? now.year;
 
     final result = await getBudgets(
-      1, // Default profile for MVP
+      profile.id,
       month: targetMonth,
       year: targetYear,
     );
@@ -55,8 +60,12 @@ class BudgetsNotifier extends AsyncNotifier<List<BudgetWithUsage>> {
   }
 
   Future<void> createBudget(Budget budget) async {
+    final profileAsync = ref.read(activeProfileProvider);
+    final profile = profileAsync.value;
+    if (profile == null) throw Exception('No active profile');
+
     final createUseCase = ref.read(createBudgetUseCaseProvider);
-    final result = await createUseCase(budget);
+    final result = await createUseCase(budget.copyWith(profileId: profile.id));
     
     if (result.isSuccess) {
       ref.invalidateSelf();
@@ -76,3 +85,21 @@ class BudgetsNotifier extends AsyncNotifier<List<BudgetWithUsage>> {
     }
   }
 }
+
+/// Provider for the total budget summary for the current month
+final totalBudgetSummaryProvider = FutureProvider<BudgetUsage>((ref) async {
+  final profileAsync = ref.watch(activeProfileProvider);
+  final profile = profileAsync.value;
+  if (profile == null) throw Exception('No active profile');
+
+  final useCase = ref.watch(getTotalBudgetSummaryUseCaseProvider);
+  final result = await useCase(profile.id, DateTime.now().month, DateTime.now().year);
+  
+  return result.when(
+    success: (usage) => usage,
+    failure: (e) => throw e,
+  );
+});
+
+/// Provider for budget alerts (e.g., when a transaction triggers over-budget)
+final budgetAlertProvider = StateProvider<BudgetUsage?>((ref) => null);

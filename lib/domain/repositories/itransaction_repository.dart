@@ -1,7 +1,5 @@
 import '../entities/transaction.dart';
-import '../entities/account.dart';
-import '../entities/category.dart';
-import '../entities/merchant.dart';
+import '../entities/transaction_with_details.dart';
 import '../core/result.dart';
 
 /// Abstract repository interface for Transaction operations
@@ -84,10 +82,11 @@ abstract class ITransactionRepository {
     int profileId, {
     DateTime? startDate,
     DateTime? endDate,
+    String? targetCurrency,
   });
 
   /// Get transactions with joined details (account, category, merchant)
-  Future<Result<List<TransactionWithJoinedDetails>, Exception>>
+  Future<Result<List<TransactionWithDetails>, Exception>>
   getTransactionsWithDetails({
     int? profileId,
     int? accountId,
@@ -96,22 +95,9 @@ abstract class ITransactionRepository {
     DateTime? startDate,
     DateTime? endDate,
     bool? requiresReview,
+    int? limit,
+    int? offset,
   });
-}
-
-/// Transaction with joined details from related tables
-class TransactionWithJoinedDetails {
-  const TransactionWithJoinedDetails({
-    required this.transaction,
-    required this.account,
-    this.category,
-    this.merchant,
-  });
-
-  final Transaction transaction;
-  final Account account;
-  final Category? category;
-  final Merchant? merchant;
 }
 
 /// Transaction statistics for reports

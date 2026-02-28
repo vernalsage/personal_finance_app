@@ -1,28 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/core/result.dart';
-import '../../domain/repositories/account_repository.dart';
-import '../../domain/repositories/itransaction_repository.dart';
 import '../../domain/usecases/analytics_usecases.dart';
-import '../../core/di/repository_providers.dart';
-
-/// Provider for get financial overview use case
-final getFinancialOverviewUseCaseProvider =
-    Provider<GetFinancialOverviewUseCase>((ref) {
-      return GetFinancialOverviewUseCase(
-        ref.read(transactionRepositoryProvider),
-        ref.read(accountRepositoryProvider),
-      );
-    });
-
-/// Provider for calculate cash runway use case
-final calculateCashRunwayUseCaseProvider = Provider<CalculateCashRunwayUseCase>(
-  (ref) {
-    return CalculateCashRunwayUseCase(
-      ref.read(transactionRepositoryProvider),
-      ref.read(accountRepositoryProvider),
-    );
-  },
-);
+import '../../core/di/usecase_providers.dart';
 
 /// State for financial overview
 class FinancialOverviewState {
@@ -138,4 +117,50 @@ class CashRunwayNotifier extends StateNotifier<CashRunwayState> {
 final cashRunwayProvider =
     StateNotifierProvider<CashRunwayNotifier, CashRunwayState>((ref) {
       return CashRunwayNotifier(ref.read(calculateCashRunwayUseCaseProvider));
+    });
+
+/// State for stability score
+class StabilityScoreState {
+  const StabilityScoreState({this.stabilityScore, this.isLoading = false, this.error});
+
+  final StabilityScore? stabilityScore;
+  final bool isLoading;
+  final String? error;
+
+  StabilityScoreState copyWith({
+    StabilityScore? stabilityScore,
+    bool? isLoading,
+    String? error,
+  }) {
+    return StabilityScoreState(
+      stabilityScore: stabilityScore ?? this.stabilityScore,
+      isLoading: isLoading ?? this.isLoading,
+      error: error ?? this.error,
+    );
+  }
+}
+
+/// Provider for stability score state
+class StabilityScoreNotifier extends StateNotifier<StabilityScoreState> {
+  StabilityScoreNotifier(this._getStabilityScoreUseCase)
+    : super(const StabilityScoreState());
+
+  final GetStabilityScoreUseCase _getStabilityScoreUseCase;
+
+  Future<void> calculateStabilityScore(int profileId) async {
+    state = state.copyWith(isLoading: true, error: null);
+
+    final result = await _getStabilityScoreUseCase(profileId);
+
+    if (result.isSuccess) {
+      state = state.copyWith(stabilityScore: result.successData!, isLoading: false);
+    } else {
+      state = state.copyWith(isLoading: false, error: result.failureData?.toString());
+    }
+  }
+}
+
+final stabilityScoreProvider =
+    StateNotifierProvider<StabilityScoreNotifier, StabilityScoreState>((ref) {
+      return StabilityScoreNotifier(ref.read(getStabilityScoreUseCaseProvider));
     });

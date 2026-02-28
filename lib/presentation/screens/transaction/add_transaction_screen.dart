@@ -1,14 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:collection/collection.dart';
 import '../../../domain/entities/transaction.dart';
 import '../../providers/account_providers.dart';
 import '../../providers/transaction_providers.dart' as providers;
+import '../../providers/category_providers.dart';
+import '../../providers/merchant_providers.dart';
 import '../../../core/utils/currency_utils.dart';
+import '../../../core/di/repository_providers.dart';
 
 class AddTransactionScreen extends ConsumerStatefulWidget {
-  const AddTransactionScreen({super.key});
+  final Transaction? transaction;
+  const AddTransactionScreen({super.key, this.transaction});
 
   @override
   ConsumerState<AddTransactionScreen> createState() =>
@@ -17,47 +22,116 @@ class AddTransactionScreen extends ConsumerStatefulWidget {
 
 class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _amountController = TextEditingController();
-  final _merchantController = TextEditingController();
-  final _noteController = TextEditingController();
+  late final TextEditingController _amountController;
+  late final TextEditingController _merchantController;
+  late final TextEditingController _noteController;
+  late final TextEditingController _dateController;
 
-  String _selectedType = 'debit';
+  late String _selectedType;
   int? _selectedAccountId;
+  int? _selectedCategoryId;
+  int? _selectedMerchantId;
+  late DateTime _selectedDate;
   bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final t = widget.transaction;
+    
+    _amountController = TextEditingController(
+      text: t != null ? (t.amountMinor.abs() / 100.0).toStringAsFixed(2) : '',
+    );
+    _merchantController = TextEditingController(text: t?.description ?? '');
+    _noteController = TextEditingController(text: t?.note ?? '');
+    _selectedDate = t?.timestamp ?? DateTime.now();
+    _dateController = TextEditingController(
+      text: DateFormat('MMM dd, yyyy').format(_selectedDate),
+    );
+    
+    _selectedType = t?.type ?? 'debit';
+    _selectedAccountId = t?.accountId;
+    _selectedCategoryId = t?.categoryId;
+    _selectedMerchantId = t?.merchantId;
+  }
 
   @override
   void dispose() {
     _amountController.dispose();
     _merchantController.dispose();
     _noteController.dispose();
+    _dateController.dispose();
     super.dispose();
+  }
+
+  Future<void> _selectDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2101),
+    );
+    if (picked != null && picked != _selectedDate) {
+      setState(() {
+        _selectedDate = picked;
+        _dateController.text = DateFormat('MMM dd, yyyy').format(picked);
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final accountsState = ref.watch(accountsProvider);
 
+    final isEditing = widget.transaction != null;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Add Transaction'),
+        title: Text(isEditing ? 'Edit Transaction' : 'Add Transaction'),
         backgroundColor: Theme.of(context).colorScheme.surface,
       ),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16.0),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+          child: Column(
+            children: [
+              if (isEditing && widget.transaction!.isTransfer)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16.0),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.info_outline, color: Colors.orange),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Text(
+                            'This transaction is part of a transfer. To maintain balance integrity, the Account and Type cannot be changed.',
+                            style: TextStyle(fontSize: 13, color: Colors.orange),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                 // Account Selection
                 Text('Account', style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<int>(
                   initialValue: _selectedAccountId,
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     labelText: 'Select Account',
-                    border: const OutlineInputBorder(),
+                    border: OutlineInputBorder(),
                   ),
                   items: accountsState.accounts.map((account) {
                     return DropdownMenuItem<int>(
@@ -67,7 +141,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
                       ),
                     );
                   }).toList(),
-                  onChanged: (value) {
+                  onChanged: (isEditing && widget.transaction!.isTransfer) ? null : (value) {
                     setState(() {
                       _selectedAccountId = value;
                     });
@@ -89,9 +163,9 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
                   initialValue: _selectedType,
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     labelText: 'Type',
-                    border: const OutlineInputBorder(),
+                    border: OutlineInputBorder(),
                   ),
                   items: [
                     DropdownMenuItem<String>(
@@ -114,12 +188,54 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
                         ],
                       ),
                     ),
+                    DropdownMenuItem<String>(
+                      value: 'transfer_out',
+                      child: Row(
+                        children: [
+                          Icon(Icons.swap_horiz, color: Colors.orange),
+                          SizedBox(width: 8),
+                          Text('Transfer (Out)'),
+                        ],
+                      ),
+                    ),
+                    DropdownMenuItem<String>(
+                      value: 'transfer_in',
+                      child: Row(
+                        children: [
+                          Icon(Icons.swap_horiz, color: Colors.blue),
+                          SizedBox(width: 8),
+                          Text('Transfer (In)'),
+                        ],
+                      ),
+                    ),
                   ],
-                  onChanged: (value) {
+                  onChanged: (isEditing && widget.transaction!.isTransfer) ? null : (value) {
                     setState(() {
                       _selectedType = value ?? 'debit';
                     });
                   },
+                ),
+                const SizedBox(height: 24),
+
+                // Category Selection
+                Text('Category', style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 8),
+                ref.watch(categoriesProvider).when(
+                  data: (categories) => DropdownButtonFormField<int>(
+                    initialValue: _selectedCategoryId,
+                    decoration: const InputDecoration(
+                      labelText: 'Select Category',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: categories.map((c) => DropdownMenuItem<int>(
+                      value: c.id,
+                      child: Text(c.name),
+                    )).toList(),
+                    onChanged: (val) => setState(() => _selectedCategoryId = val),
+                    validator: (val) => val == null ? 'Please select a category' : null,
+                  ),
+                  loading: () => const LinearProgressIndicator(),
+                  error: (err, _) => Text('Error loading categories: $err'),
                 ),
                 const SizedBox(height: 24),
 
@@ -161,21 +277,36 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
                 }(),
                 const SizedBox(height: 24),
 
-                // Merchant Field
+                // Date Field
+                Text('Date', style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: _dateController,
+                  readOnly: true,
+                  onTap: () => _selectDate(context),
+                  decoration: const InputDecoration(
+                    labelText: 'Transaction Date',
+                    suffixIcon: Icon(Icons.calendar_today),
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // Merchant/Description Field
                 Text(
-                  'Merchant/Description',
+                  'Merchant / Description',
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 const SizedBox(height: 8),
                 TextFormField(
                   controller: _merchantController,
-                  decoration: InputDecoration(
-                    labelText: 'Merchant or Description',
-                    border: const OutlineInputBorder(),
+                  decoration: const InputDecoration(
+                    labelText: 'Transaction Description',
+                    border: OutlineInputBorder(),
                   ),
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
-                      return 'Please enter merchant or description';
+                      return 'Please enter a description';
                     }
                     return null;
                   },
@@ -190,9 +321,9 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
                 const SizedBox(height: 8),
                 TextFormField(
                   controller: _noteController,
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     labelText: 'Note',
-                    border: const OutlineInputBorder(),
+                    border: OutlineInputBorder(),
                   ),
                   maxLines: 3,
                 ),
@@ -214,16 +345,18 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
                             height: 20,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Text('Add Transaction'),
+                        : Text(isEditing ? 'Update Transaction' : 'Add Transaction'),
                   ),
                 ),
-              ],
+                ],
+              ),
             ),
-          ),
+          ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Future<void> _submitTransaction() async {
     if (_formKey.currentState?.validate() != true) {
@@ -235,45 +368,67 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
     });
 
     try {
-      // Convert amount string to minor units
+      final isEditing = widget.transaction != null;
+      final profileId = widget.transaction?.profileId ?? 1;
+
+      // 1. Get or create merchant based on description
+      final description = _merchantController.text.trim();
+      final merchantRepo = ref.read(merchantRepositoryProvider);
+      final normalizedName = merchantRepo.normalizeMerchantName(description);
+      
+      final merchantResult = await merchantRepo.getOrCreateMerchant(
+        profileId,
+        description,
+        normalizedName,
+        categoryId: _selectedCategoryId,
+      );
+
+      if (merchantResult.isFailure) {
+        throw merchantResult.failureData!;
+      }
+      
+      final merchantId = merchantResult.successData!.id;
+
+      // 2. Convert amount string to minor units
       final amountMinor = CurrencyUtils.formatAmountToMinor(
         _amountController.text,
       );
 
-      // Create transaction entity
+      // 3. Create/Update transaction entity
       final transaction = Transaction(
-        id: 0, // Will be set by database
-        profileId: 1, // Using default profile for MVP
+        id: widget.transaction?.id ?? 0,
+        profileId: profileId,
         accountId: _selectedAccountId!,
-        categoryId: 1, // Using default category for MVP
-        merchantId: 1, // Auto-generate merchant for MVP
+        categoryId: _selectedCategoryId ?? 1,
+        merchantId: merchantId,
         amountMinor: amountMinor,
         type: _selectedType,
-        description: _merchantController.text.trim(),
-        timestamp: DateTime.now(),
-        confidenceScore: 100, // Manual entry gets 100% confidence
+        description: description,
+        timestamp: _selectedDate,
+        confidenceScore: 100,
         requiresReview: false,
         note: _noteController.text.trim().isNotEmpty
             ? _noteController.text.trim()
             : null,
       );
 
-      // Submit via notifier for reactive sync across all providers
-      await ref.read(providers.transactionsProvider.notifier).addTransaction(transaction);
+      if (isEditing) {
+        await ref.read(providers.transactionsProvider.notifier).updateTransaction(transaction);
+      } else {
+        await ref.read(providers.transactionsProvider.notifier).addTransaction(transaction);
+      }
       
       final transactionsState = ref.read(providers.transactionsProvider);
 
       if (mounted) {
         if (transactionsState.error == null) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Transaction added successfully'),
+            SnackBar(
+              content: Text(isEditing ? 'Transaction updated successfully' : 'Transaction added successfully'),
               backgroundColor: Colors.green,
             ),
           );
 
-          // Clear form and go back
-          _formKey.currentState?.reset();
           if (mounted) {
             Navigator.of(context).pop();
           }

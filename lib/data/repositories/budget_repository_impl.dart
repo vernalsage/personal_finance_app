@@ -2,15 +2,22 @@ import '../database/daos/budgets_dao.dart';
 import '../mappers/budget_mapper.dart';
 import '../../domain/repositories/budget_repository.dart';
 import '../../domain/repositories/itransaction_repository.dart';
+import '../../domain/repositories/profile_repository.dart';
 import '../../domain/core/result.dart';
 import '../../domain/entities/budget.dart' as domain;
+import '../../application/services/hybrid_currency_service.dart';
 
 /// Implementation of BudgetRepository using Drift DAO
 class BudgetRepositoryImpl implements BudgetRepository {
   final BudgetsDao _budgetsDao;
   final ITransactionRepository _transactionRepository;
+  final ProfileRepository _profileRepository;
 
-  BudgetRepositoryImpl(this._budgetsDao, this._transactionRepository);
+  BudgetRepositoryImpl(
+    this._budgetsDao, 
+    this._transactionRepository,
+    this._profileRepository,
+  );
 
   @override
   Future<Result<domain.Budget, Exception>> createBudget(
@@ -118,39 +125,135 @@ class BudgetRepositoryImpl implements BudgetRepository {
       
       final budget = budgetResult.successData!;
       
+      // Get profile for base currency
+      final profileResult = await _profileRepository.getProfileById(budget.profileId);
+      if (profileResult.isFailure) return Failure(profileResult.failureData!);
+      final baseCurrency = profileResult.successData?.currency ?? 'NGN';
+      
       // Calculate start and end of the budget month
       final startDate = DateTime(budget.year, budget.month, 1);
       final endDate = DateTime(budget.year, budget.month + 1, 0, 23, 59, 59);
       
-      // Get total debit transactions for this category in this month
-      final spentResult = await _transactionRepository.getTotalAmountByType(
-        budget.profileId,
-        'debit',
+      // Get all debit transactions for this category in this month with details
+      final transactionsResult = await _transactionRepository.getTransactionsWithDetails(
+        profileId: budget.profileId,
+        type: 'debit',
         categoryId: budget.categoryId,
         startDate: startDate,
         endDate: endDate,
       );
       
-      if (spentResult.isFailure) {
-        return Failure(spentResult.failureData!);
+      if (transactionsResult.isFailure) {
+        return Failure(transactionsResult.failureData!);
       }
-      
-      final spentAmount = spentResult.successData!.abs();
-      final remaining = budget.amountMinor - spentAmount;
+
+      double totalSpentBase = 0;
+      for (final detail in transactionsResult.successData!) {
+        final amount = detail.transaction.amountMinor.abs() / 100.0;
+        final fromCurrency = detail.account?.currency ?? 'NGN';
+        
+        final converted = await HybridCurrencyService.convertCurrency(
+          amount: amount,
+          fromCurrency: fromCurrency,
+          toCurrency: baseCurrency,
+        );
+        totalSpentBase += converted;
+      }
+
+      final spentAmountMinor = (totalSpentBase * 100).round();
+      final remaining = budget.amountMinor - spentAmountMinor;
       final usagePercent = budget.amountMinor > 0 
-          ? (spentAmount / budget.amountMinor * 100) 
+          ? (spentAmountMinor / budget.amountMinor * 100) 
           : 0.0;
 
       return Success(domain.BudgetUsage(
         budgetAmountMinor: budget.amountMinor,
-        spentAmountMinor: spentAmount,
+        spentAmountMinor: spentAmountMinor,
         remainingAmountMinor: remaining,
         usagePercentage: usagePercent,
-        isOverBudget: spentAmount > budget.amountMinor,
-        isNearLimit: usagePercent >= 90 && spentAmount <= budget.amountMinor,
+        isOverBudget: spentAmountMinor > budget.amountMinor,
+        isNearLimit: usagePercent >= 90 && spentAmountMinor <= budget.amountMinor,
       ));
     } catch (e) {
       return Failure(Exception('Failed to get budget usage: $e'));
+    }
+  }
+
+  @override
+  Future<Result<domain.BudgetUsage, Exception>> getTotalBudgetSummary(
+    int profileId,
+    int month,
+    int year,
+  ) async {
+    try {
+      // 1. Get profile for base currency
+      final profileResult = await _profileRepository.getProfileById(profileId);
+      if (profileResult.isFailure) return Failure(profileResult.failureData!);
+      final baseCurrency = profileResult.successData?.currency ?? 'NGN';
+
+      // 2. Get total budget limit (already in base currency by convention)
+      final totalLimit = await _budgetsDao.getTotalBudgetLimit(profileId, month, year);
+      
+      final startDate = DateTime(year, month, 1);
+      final endDate = DateTime(year, month + 1, 0, 23, 59, 59);
+
+      // 3. Get all debit transactions with account details for the period
+      final transactionsResult = await _transactionRepository.getTransactionsWithDetails(
+        profileId: profileId,
+        type: 'debit',
+        startDate: startDate,
+        endDate: endDate,
+      );
+
+      if (transactionsResult.isFailure) {
+        return Failure(transactionsResult.failureData!);
+      }
+
+      double totalSpentBase = 0;
+      for (final detail in transactionsResult.successData!) {
+        final amount = detail.transaction.amountMinor.abs() / 100.0;
+        final fromCurrency = detail.account?.currency ?? 'NGN';
+        
+        final converted = await HybridCurrencyService.convertCurrency(
+          amount: amount,
+          fromCurrency: fromCurrency,
+          toCurrency: baseCurrency,
+        );
+        totalSpentBase += converted;
+      }
+
+      final spentAmountMinor = (totalSpentBase * 100).round();
+      final remaining = totalLimit - spentAmountMinor;
+      final usagePercent = totalLimit > 0 
+          ? (spentAmountMinor / totalLimit * 100) 
+          : 0.0;
+
+      return Success(domain.BudgetUsage(
+        budgetAmountMinor: totalLimit,
+        spentAmountMinor: spentAmountMinor,
+        remainingAmountMinor: remaining,
+        usagePercentage: usagePercent,
+        isOverBudget: spentAmountMinor > totalLimit,
+        isNearLimit: usagePercent >= 90 && spentAmountMinor <= totalLimit,
+      ));
+    } catch (e) {
+      return Failure(Exception('Failed to get total budget summary: $e'));
+    }
+  }
+
+  @override
+  Future<Result<void, Exception>> convertBudgets(
+    int profileId,
+    double conversionRate,
+  ) async {
+    try {
+      await _budgetsDao.convertBudgetsCurrency(
+        profileId: profileId,
+        conversionRate: conversionRate,
+      );
+      return Success(null);
+    } catch (e) {
+      return Failure(Exception('Failed to convert budgets: $e'));
     }
   }
 }

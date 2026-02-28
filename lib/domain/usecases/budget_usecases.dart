@@ -66,3 +66,18 @@ class DeleteBudgetUseCase {
     return _repository.deleteBudget(budgetId);
   }
 }
+
+/// Use case to get the total budget summary for a month
+class GetTotalBudgetSummaryUseCase {
+  final BudgetRepository _repository;
+
+  GetTotalBudgetSummaryUseCase(this._repository);
+
+  Future<Result<BudgetUsage, Exception>> call(
+    int profileId,
+    int month,
+    int year,
+  ) {
+    return _repository.getTotalBudgetSummary(profileId, month, year);
+  }
+}

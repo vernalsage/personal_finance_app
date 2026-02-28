@@ -6,6 +6,7 @@ import '../../services/auth_service.dart';
 import 'package:crypto/crypto.dart';
 import 'dart:convert';
 import 'dart:math';
+import 'package:flutter/foundation.dart';
 import 'package:sqlite3/open.dart';
 import 'package:sqlcipher_flutter_libs/sqlcipher_flutter_libs.dart';
 
@@ -50,12 +51,22 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(QueryExecutor executor) : super(executor);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (m) async {
       await m.createAll();
+    },
+    onUpgrade: (m, from, to) async {
+      if (from < 3) {
+        // Safe recreation of transactions table to apply nullability change while preserving data
+        await m.alterTable(TableMigration(transactions));
+      }
+    },
+    beforeOpen: (details) async {
+      // Enable foreign keys
+      await customStatement('PRAGMA foreign_keys = ON');
     },
   );
 
@@ -105,11 +116,26 @@ class AppDatabase extends _$AppDatabase {
 
     if (profilesCount == 0) {
       await transaction(() async {
+        // Detect default currency from locale
+        String defaultCurrency = 'USD';
+        try {
+          final locale = Platform.localeName;
+          if (locale.contains('NG')) {
+            defaultCurrency = 'NGN';
+          } else if (locale.contains('GB')) {
+            defaultCurrency = 'GBP';
+          } else if (locale.contains('EU') || locale.contains('DE') || locale.contains('FR')) {
+            defaultCurrency = 'EUR';
+          }
+        } catch (e) {
+          debugPrint('Failed to detect locale currency: $e');
+        }
+
         // Create default profile
         final profileId = await into(profiles).insert(
           ProfilesCompanion.insert(
             name: 'Default Profile',
-            currency: 'NGN',
+            currency: defaultCurrency,
             isActive: const Value(true),
           ),
         );

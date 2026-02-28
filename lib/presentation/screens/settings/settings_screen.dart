@@ -5,6 +5,9 @@ import '../budgets/budgets_screen.dart';
 import '../goals/goals_screen.dart';
 import '../recurring/recurring_rules_screen.dart';
 import '../merchants/merchants_screen.dart';
+import '../transactions/transactions_screen.dart';
+import '../../providers/profile_providers.dart';
+import '../../../core/di/service_providers.dart';
 import '../../../main.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -61,6 +64,15 @@ class SettingsScreen extends ConsumerWidget {
           ]),
           const SizedBox(height: 24),
           _buildSection(context, 'App Settings', [
+            const _BaseCurrencyTile(),
+            _SettingTile(
+              icon: Icons.history_outlined,
+              title: 'Transaction History',
+              subtitle: 'View and edit all past records',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const TransactionsScreen(initialFilter: 'All')),
+              ),
+            ),
             _SecurityToggleTile(
               isActive: securityState.isBiometricEnabled,
               isAvailable: securityState.isBiometricAvailable,
@@ -70,7 +82,26 @@ class SettingsScreen extends ConsumerWidget {
               icon: Icons.cloud_outlined,
               title: 'Data Export',
               subtitle: 'Export your data to CSV',
-              onTap: () {},
+              onTap: () async {
+                final profile = ref.read(activeProfileProvider).value;
+                if (profile == null) return;
+                
+                try {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Preparing export...')),
+                  );
+                  await ref.read(exportServiceProvider).exportTransactions(profile.id);
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Export failed: $e'),
+                        backgroundColor: kError,
+                      ),
+                    );
+                  }
+                }
+              },
             ),
           ]),
         ],
@@ -170,6 +201,71 @@ class _SecurityToggleTile extends StatelessWidget {
       value: isAvailable && isActive,
       onChanged: isAvailable ? onChanged : null,
       activeColor: kPrimary,
+    );
+  }
+}
+
+class _BaseCurrencyTile extends ConsumerWidget {
+  const _BaseCurrencyTile();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final profileAsync = ref.watch(activeProfileProvider);
+
+    // Listen for errors to show a SnackBar
+    ref.listen(activeProfileProvider, (previous, next) {
+      if (next is AsyncError && previous is! AsyncError) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to update currency: ${next.error}'),
+            backgroundColor: kError,
+          ),
+        );
+      }
+    });
+
+    final currentCurrency = profileAsync.value?.currency ?? 'NGN';
+
+    return ListTile(
+      leading: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: kPrimaryBg,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: const Icon(Icons.currency_exchange_outlined, color: kPrimary, size: 20),
+      ),
+      title: const Text('Base Currency', style: TextStyle(fontWeight: FontWeight.w600)),
+      subtitle: profileAsync.isLoading && profileAsync.value == null
+        ? const Text('Loading...')
+        : Text('Primary display currency: $currentCurrency'),
+      trailing: const Icon(Icons.chevron_right, size: 20, color: kTextSecondary),
+      onTap: () => _showCurrencyPicker(context, ref, currentCurrency),
+    );
+  }
+
+  void _showCurrencyPicker(BuildContext context, WidgetRef ref, String current) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text('Select Base Currency', style: Theme.of(context).textTheme.titleMedium),
+            ),
+            ...['NGN', 'USD', 'GBP', 'EUR'].map((c) => ListTile(
+              title: Text(c),
+              trailing: c == current ? const Icon(Icons.check, color: kPrimary) : null,
+              onTap: () {
+                ref.read(activeProfileProvider.notifier).updateCurrency(c);
+                Navigator.pop(context);
+              },
+            )),
+          ],
+        ),
+      ),
     );
   }
 }

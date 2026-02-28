@@ -1,4 +1,5 @@
 import '../entities/transaction.dart';
+import '../entities/transaction_with_details.dart';
 import '../repositories/itransaction_repository.dart';
 import '../repositories/merchant_repository.dart';
 import '../core/result.dart';
@@ -108,14 +109,20 @@ class GetTransactionsRequiringReviewUseCase {
 
   final ITransactionRepository _repository;
 
-  Future<Result<List<Transaction>, Exception>> call(
+  Future<Result<List<TransactionWithDetails>, Exception>> call(
     int profileId, {
     int? limit,
     int? offset,
   }) async {
-    return await _repository.getTransactionsRequiringReview(profileId);
+    return await _repository.getTransactionsWithDetails(
+      profileId: profileId,
+      requiresReview: true,
+      limit: limit,
+      offset: offset,
+    );
   }
 }
+
 
 /// Use case for getting transactions
 class GetTransactionsUseCase {
@@ -123,7 +130,7 @@ class GetTransactionsUseCase {
 
   final ITransactionRepository _repository;
 
-  Future<Result<List<Transaction>, Exception>> call({
+  Future<Result<List<TransactionWithDetails>, Exception>> call({
     required int profileId,
     int? accountId,
     int? categoryId,
@@ -135,17 +142,15 @@ class GetTransactionsUseCase {
     int? limit,
     int? offset,
   }) async {
-    return await _repository.getTransactions(
+    // We now always prefer the detailed view for the main transaction list
+    return await _repository.getTransactionsWithDetails(
       profileId: profileId,
       accountId: accountId,
       categoryId: categoryId,
-      merchantId: merchantId,
+      type: type,
       startDate: startDate,
       endDate: endDate,
-      type: type,
       requiresReview: requiresReview,
-      limit: limit,
-      offset: offset,
     );
   }
 }

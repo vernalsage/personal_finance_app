@@ -19,9 +19,12 @@ import '../../data/repositories/budget_repository_impl.dart';
 import '../../data/repositories/goal_repository_impl.dart';
 import '../../data/repositories/recurring_rule_repository_impl.dart';
 import '../../data/repositories/tag_repository_impl.dart';
+import '../../data/repositories/profile_repository_impl.dart';
 
-// Note: ProfileRepositoryImpl not yet implemented, using a placeholder if needed
-// or we can implement it quickly.
+/// Provider for Profile Repository
+final profileRepositoryProvider = Provider<ProfileRepository>((ref) {
+  return ProfileRepositoryImpl(ref.watch(profilesDaoProvider));
+});
 
 /// Provider for Account Repository
 final accountRepositoryProvider = Provider<AccountRepository>((ref) {
@@ -48,6 +51,7 @@ final budgetRepositoryProvider = Provider<BudgetRepository>((ref) {
   return BudgetRepositoryImpl(
     ref.watch(budgetsDaoProvider),
     ref.watch(transactionRepositoryProvider),
+    ref.watch(profileRepositoryProvider),
   );
 });
 

@@ -5,6 +5,7 @@ import 'package:collection/collection.dart';
 import '../../../application/services/hybrid_currency_service.dart';
 import '../../../core/utils/currency_utils.dart';
 import '../../../domain/entities/transaction.dart';
+import '../../../domain/entities/transaction_with_details.dart';
 import '../../../domain/entities/account.dart';
 import '../../../main.dart';
 import '../../providers/account_providers.dart';
@@ -12,7 +13,9 @@ import '../../providers/transaction_providers.dart';
 import '../transaction/add_transaction_screen.dart';
 import '../transfer/transfer_screen.dart';
 import '../transactions/transactions_screen.dart';
+import '../../providers/analytics_providers.dart';
 import '../recurring/recurring_rules_screen.dart';
+import '../../providers/profile_providers.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -25,6 +28,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   Future<double>? _totalBalanceFuture;
   bool _balanceVisible = true;
   List<Account>? _lastAccounts;
+  String? _lastTargetCurrency;
 
   @override
   void initState() {
@@ -34,22 +38,24 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   Future<void> _loadData() async {
     try {
-      await Future.wait([
+      await Future.wait<dynamic>([
         ref.read(accountsProvider.notifier).loadAccounts(1),
         ref.read(transactionsProvider.notifier).loadTransactions(1, limit: 10),
+        ref.read(cashRunwayProvider.notifier).calculateCashRunway(1),
+        ref.read(stabilityScoreProvider.notifier).calculateStabilityScore(1),
       ]);
     } catch (e) {
       debugPrint('Error loading dashboard data: $e');
     }
   }
 
-  Future<double> _calculateTotalBalance(dynamic accounts) async {
+  Future<double> _calculateTotalBalance(dynamic accounts, String targetCurrency) async {
     double total = 0.0;
     for (final account in accounts) {
       final converted = await HybridCurrencyService.convertCurrency(
         amount: account.balanceMinor / 100.0,
         fromCurrency: account.currency,
-        toCurrency: 'NGN',
+        toCurrency: targetCurrency,
       );
       total += converted;
     }
@@ -65,17 +71,29 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final profileAsync = ref.watch(activeProfileProvider);
+    final profile = profileAsync.value;
+    final targetCurrency = profile?.currency ?? 'USD';
+
     final accountsState = ref.watch(accountsProvider);
     final transactionsState = ref.watch(transactionsProvider);
 
-    // Recalculate if accounts list actually changed
-    if (_lastAccounts != accountsState.accounts) {
+    // Watch for currency changes specifically to reload data
+    ref.listen(activeProfileProvider, (previous, next) {
+      if (previous?.value?.currency != next.value?.currency) {
+        _loadData();
+      }
+    });
+
+    // Recalculate if accounts list actually changed OR currency changed
+    if (_lastAccounts != accountsState.accounts || _lastTargetCurrency != targetCurrency) {
       _lastAccounts = accountsState.accounts;
-      _totalBalanceFuture = _calculateTotalBalance(accountsState.accounts);
+      _lastTargetCurrency = targetCurrency;
+      _totalBalanceFuture = _calculateTotalBalance(accountsState.accounts, targetCurrency);
     }
 
     final reviewTransactions =
-        transactionsState.transactions.where((t) => t.requiresReview).toList();
+        transactionsState.transactions.where((t) => t.transaction.requiresReview).toList();
 
     return Scaffold(
       backgroundColor: kBackground,
@@ -94,7 +112,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 const SizedBox(height: 16),
 
                 // ─── Balance Card ──────────────────────────────────────────
-                _buildBalanceCard(),
+                _buildBalanceCard(targetCurrency),
                 const SizedBox(height: 12),
 
                 // ─── Metric Chips Row ──────────────────────────────────────
@@ -183,7 +201,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  Widget _buildBalanceCard() {
+  Widget _buildBalanceCard(String targetCurrency) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -227,13 +245,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               if (snapshot.hasData) {
                 balance = CurrencyUtils.formatMinorToDisplay(
                   (snapshot.data! * 100).round(),
-                  'NGN',
+                  targetCurrency,
                 );
               } else if (snapshot.hasError) {
                 balance = 'Error loading balance';
               }
+              final symbol = CurrencyUtils.getCurrencySymbol(targetCurrency);
               return Text(
-                _balanceVisible ? balance : '₦ ••••••',
+                _balanceVisible ? balance : '$symbol ••••••',
                 style: const TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.w800,
@@ -262,13 +281,29 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   Widget _buildMetricRow(dynamic accountsState) {
+    final runwayState = ref.watch(cashRunwayProvider);
+    final stabilityState = ref.watch(stabilityScoreProvider);
+
+    final runwayValue = runwayState.isLoading 
+        ? '...' 
+        : runwayState.cashRunway != null 
+            ? '${(runwayState.cashRunway!.runwayDays / 30).toStringAsFixed(1)} Mo'
+            : 'N/A';
+            
+    final stabilityValue = stabilityState.isLoading
+        ? '...'
+        : stabilityState.stabilityScore != null
+            ? '${stabilityState.stabilityScore!.score}/100'
+            : 'N/A';
+
     return Row(
       children: [
         Expanded(
           child: _MetricCard(
             icon: Icons.calendar_today_outlined,
             label: 'Cash Runway',
-            value: '6 Months',
+            value: runwayValue,
+            isLoading: runwayState.isLoading,
           ),
         ),
         const SizedBox(width: 10),
@@ -276,7 +311,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           child: _MetricCard(
             icon: Icons.shield_outlined,
             label: 'Stability Score',
-            value: '85/100',
+            value: stabilityValue,
+            isLoading: stabilityState.isLoading,
           ),
         ),
       ],
@@ -388,13 +424,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   .entries
                   .map<Widget>((entry) {
                 final i = entry.key;
-                final t = entry.value as Transaction;
+                final twd = entry.value as TransactionWithDetails;
+                final t = twd.transaction;
                 final isLast = i == (transactionsState.transactions.length.clamp(0, 5) - 1);
                 return Column(
                   children: [
                     _DashboardTransactionRow(
-                      transaction: t,
-                      accountName: _getAccountName(t.accountId, accountsState),
+                      transactionWithDetails: twd,
                       accountsState: accountsState,
                     ),
                     if (!isLast)
@@ -505,11 +541,13 @@ class _MetricCard extends StatelessWidget {
   final IconData icon;
   final String label;
   final String value;
+  final bool isLoading;
 
   const _MetricCard({
     required this.icon,
     required this.label,
     required this.value,
+    this.isLoading = false,
   });
 
   @override
@@ -549,88 +587,136 @@ class _MetricCard extends StatelessWidget {
 }
 
 class _DashboardTransactionRow extends StatelessWidget {
-  final Transaction transaction;
-  final String accountName;
+  final TransactionWithDetails transactionWithDetails;
   final AccountsState accountsState;
 
   const _DashboardTransactionRow({
-    required this.transaction,
-    required this.accountName,
+    required this.transactionWithDetails,
     required this.accountsState,
   });
 
   @override
   Widget build(BuildContext context) {
+    final transaction = transactionWithDetails.transaction;
+    final category = transactionWithDetails.category;
+    final merchant = transactionWithDetails.merchant;
+    
     final isCredit = transaction.amountMinor >= 0;
     final amountColor = isCredit ? kSuccess : kError;
-    final iconColor = _getCategoryColor(transaction.description);
+    
+    // Use the same icon/color logic as TransactionsScreen
+    final iconData = _getIconData(category?.icon, transaction.type);
+    final iconColor = _getColor(category?.color, transaction.type);
     
     // Get currency from the account
-    final account = accountsState.accounts.firstWhereOrNull((a) => a.id == transaction.accountId);
+    final account = transactionWithDetails.account;
     final currency = account?.currency ?? 'NGN';
     final amount = CurrencyUtils.formatMinorToDisplay(
         transaction.amountMinor.abs(), currency);
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: iconColor.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(_getCategoryIcon(transaction.description),
-                color: iconColor, size: 20),
+    return InkWell(
+      onTap: () {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => AddTransactionScreen(transaction: transaction),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+        );
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: iconColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(iconData, color: iconColor, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    merchant?.name ?? transaction.description,
+                    style: Theme.of(context).textTheme.bodyLarge,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      Flexible(child: _Chip(text: category?.name ?? 'Other')),
+                      const SizedBox(width: 6),
+                      if (account != null)
+                        Flexible(child: _Chip(text: account.name, isAccount: true)),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  transaction.description,
-                  style: Theme.of(context).textTheme.bodyLarge,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  '${isCredit ? '+' : '-'}$amount',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: amountColor,
+                        fontWeight: FontWeight.bold,
+                      ),
                 ),
                 const SizedBox(height: 2),
-                Row(
-                  children: [
-                    Flexible(child: _Chip(text: _getCategoryName(transaction.description))),
-                    const SizedBox(width: 6),
-                    Flexible(child: _Chip(text: accountName, isAccount: true)),
-                  ],
+                Text(
+                  _formatTime(transaction.timestamp),
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodySmall
+                      ?.copyWith(color: kTextSecondary),
                 ),
               ],
             ),
-          ),
-          const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                '${isCredit ? '+' : '-'}$amount',
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: amountColor,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                _formatTime(transaction.timestamp),
-                style: Theme.of(context)
-                    .textTheme
-                    .bodySmall
-                    ?.copyWith(color: kTextSecondary),
-              ),
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
     );
+  }
+
+  IconData _getIconData(String? iconName, String type) {
+    if (type == 'transfer_out' || type == 'transfer_in') {
+      return Icons.swap_horiz_outlined;
+    }
+    
+    switch (iconName?.toLowerCase()) {
+      case 'shopping_cart': return Icons.shopping_cart_outlined;
+      case 'restaurant': return Icons.restaurant_outlined;
+      case 'directions_car': return Icons.directions_car_outlined;
+      case 'home': return Icons.home_outlined;
+      case 'payments': return Icons.payments_outlined;
+      case 'receipt': return Icons.receipt_outlined;
+      case 'bolt': return Icons.bolt_outlined;
+      case 'coffee': return Icons.coffee_outlined;
+      case 'phone_iphone': return Icons.phone_iphone_outlined;
+      default: return Icons.receipt_outlined;
+    }
+  }
+
+  Color _getColor(String? colorHex, String type) {
+    if (type == 'transfer_out' || type == 'transfer_in') {
+      return kPrimary;
+    }
+    
+    if (colorHex == null || colorHex.isEmpty) return kTextSecondary;
+    try {
+      final hex = colorHex.replaceAll('#', '');
+      return Color(int.parse('FF$hex', radix: 16));
+    } catch (_) {
+      return kTextSecondary;
+    }
   }
 
   Color _getCategoryColor(String? desc) {

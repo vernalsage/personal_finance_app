@@ -20,7 +20,7 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
 
     // Filter only transactions that require review
     final reviewTransactions = transactionsState.transactions
-        .where((transaction) => transaction.requiresReview)
+        .where((t) => t.transaction.requiresReview)
         .toList();
 
     return Scaffold(
@@ -90,10 +90,10 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
                 )
               else
                 ...reviewTransactions.map(
-                  (transaction) => _ReviewTransactionCard(
-                    transaction: transaction,
+                  (txDetails) => _ReviewTransactionCard(
+                    transaction: txDetails.transaction,
                     onApprove: () => _approveTransaction(
-                      transaction,
+                      txDetails.transaction,
                       updateTransactionUseCase,
                     ),
                     onEdit: () {

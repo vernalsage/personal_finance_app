@@ -7,6 +7,7 @@ import '../../domain/usecases/recurring_rule_usecases.dart';
 import '../../domain/usecases/insight_usecases.dart';
 import '../../domain/usecases/account_usecases.dart';
 import '../../domain/usecases/transaction_usecases.dart';
+import '../../domain/usecases/analytics_usecases.dart';
 
 /// Provider for GetBudgetsUseCase
 final getBudgetsUseCaseProvider = Provider<GetBudgetsUseCase>((ref) {
@@ -31,6 +32,11 @@ final updateBudgetUseCaseProvider = Provider<UpdateBudgetUseCase>((ref) {
 /// Provider for DeleteBudgetUseCase
 final deleteBudgetUseCaseProvider = Provider<DeleteBudgetUseCase>((ref) {
   return DeleteBudgetUseCase(ref.watch(budgetRepositoryProvider));
+});
+
+/// Provider for GetTotalBudgetSummaryUseCase
+final getTotalBudgetSummaryUseCaseProvider = Provider<GetTotalBudgetSummaryUseCase>((ref) {
+  return GetTotalBudgetSummaryUseCase(ref.watch(budgetRepositoryProvider));
 });
 
 /// Provider for ExecuteTransferUseCase
@@ -97,6 +103,33 @@ final getExpenseBreakdownUseCaseProvider = Provider<GetExpenseBreakdownUseCase>(
 /// Provider for GetWeeklySpendingUseCase
 final getWeeklySpendingUseCaseProvider = Provider<GetWeeklySpendingUseCase>((ref) {
   return GetWeeklySpendingUseCase(ref.watch(transactionRepositoryProvider));
+});
+
+/// Provider for get financial overview use case
+final getFinancialOverviewUseCaseProvider = Provider<GetFinancialOverviewUseCase>((ref) {
+  return GetFinancialOverviewUseCase(
+    ref.watch(transactionRepositoryProvider),
+    ref.watch(accountRepositoryProvider),
+    ref.watch(profileRepositoryProvider),
+  );
+});
+
+/// Provider for calculate cash runway use case
+final calculateCashRunwayUseCaseProvider = Provider<CalculateCashRunwayUseCase>((ref) {
+  return CalculateCashRunwayUseCase(
+    ref.watch(transactionRepositoryProvider),
+    ref.watch(accountRepositoryProvider),
+    ref.watch(profileRepositoryProvider),
+  );
+});
+
+/// Provider for get stability score use case
+final getStabilityScoreUseCaseProvider = Provider<GetStabilityScoreUseCase>((ref) {
+  return GetStabilityScoreUseCase(
+    ref.watch(transactionRepositoryProvider),
+    ref.watch(accountRepositoryProvider),
+    ref.watch(profileRepositoryProvider),
+  );
 });
 
 // --- Account Use Cases ---

@@ -16,10 +16,12 @@ class Profile {
   const Profile({
     required this.id,
     required this.name,
+    required this.currency,
     this.email,
   });
 
   final int id;
   final String name;
+  final String currency;
   final String? email;
 }

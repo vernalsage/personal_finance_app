@@ -46,4 +46,32 @@ class BudgetsDao extends DatabaseAccessor<AppDatabase> with _$BudgetsDaoMixin {
         ))
         .getSingleOrNull();
   }
+
+  Future<int> getTotalBudgetLimit(int profileId, int month, int year) async {
+    final query = selectOnly(budgets)
+      ..addColumns([budgets.amountMinor.sum()])
+      ..where(budgets.profileId.equals(profileId) &
+          budgets.month.equals(month) &
+          budgets.year.equals(year));
+
+    final result = await query.getSingle();
+    return result.read(budgets.amountMinor.sum()) ?? 0;
+  }
+
+  /// Bulk convert all budget limits to a new target currency
+  Future<void> convertBudgetsCurrency({
+    required int profileId,
+    required double conversionRate,
+  }) async {
+    final allBudgets = await (select(budgets)
+          ..where((b) => b.profileId.equals(profileId)))
+        .get();
+
+    for (final budget in allBudgets) {
+      final newAmountMinor = (budget.amountMinor * conversionRate).round();
+      await (update(budgets)..where((b) => b.id.equals(budget.id))).write(
+        BudgetsCompanion(amountMinor: Value(newAmountMinor)),
+      );
+    }
+  }
 }

@@ -32,8 +32,8 @@ extension DomainTransactionMapper on domain.Transaction {
       id: id == 0 ? const Value.absent() : Value(id),
       profileId: Value(profileId),
       accountId: Value(accountId),
-      categoryId: Value(categoryId),
-      merchantId: Value(merchantId),
+      categoryId: Value.absentIfNull(categoryId),
+      merchantId: Value.absentIfNull(merchantId),
       amountMinor: Value(amountMinor),
       type: Value(type),
       description: Value(description),
@@ -50,9 +50,10 @@ extension DomainTransactionMapper on domain.Transaction {
   /// Convert Domain Transaction to Drift TransactionsCompanion for updates
   TransactionsCompanion toUpdateCompanion() {
     return TransactionsCompanion(
+      id: Value(id),
       accountId: Value(accountId),
-      categoryId: Value(categoryId),
-      merchantId: Value(merchantId),
+      categoryId: Value.absentIfNull(categoryId),
+      merchantId: Value.absentIfNull(merchantId),
       amountMinor: Value(amountMinor),
       type: Value(type),
       description: Value(description),

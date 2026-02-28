@@ -19,8 +19,8 @@ class Transaction {
   final int id;
   final int profileId;
   final int accountId;
-  final int categoryId;
-  final int merchantId;
+  final int? categoryId;
+  final int? merchantId;
   final int amountMinor;
   final String type;
   final String description;

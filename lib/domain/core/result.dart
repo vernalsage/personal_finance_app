@@ -59,6 +59,17 @@ sealed class Result<S, F> {
       Failure<S, F>(value: final error) => throw error as Exception,
     };
   }
+
+  /// Functional handling of Success and Failure
+  T when<T>({
+    required T Function(S data) success,
+    required T Function(F error) failure,
+  }) {
+    return switch (this) {
+      Success<S, F>(value: final data) => success(data),
+      Failure<S, F>(value: final error) => failure(error),
+    };
+  }
 }
 
 /// Represents a successful operation

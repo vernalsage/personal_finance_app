@@ -68,8 +68,8 @@ void main() {
         TransactionsCompanion.insert(
           profileId: profileId,
           accountId: accountId,
-          categoryId: 1,
-          merchantId: 1,
+          categoryId: const Value(1),
+          merchantId: const Value(1),
           amountMinor: 200000, // Absolute ₦2,000.00
           type: 'debit',
           description: 'Grocery Shopping',
@@ -82,8 +82,8 @@ void main() {
         TransactionsCompanion.insert(
           profileId: profileId,
           accountId: accountId,
-          categoryId: 1,
-          merchantId: 1,
+          categoryId: const Value(1),
+          merchantId: const Value(1),
           amountMinor: 500000, // Absolute ₦5,000.00
           type: 'credit',
           description: 'Freelance Work',
@@ -131,8 +131,8 @@ void main() {
         outEntry: TransactionsCompanion.insert(
           profileId: profileId,
           accountId: sourceId,
-          categoryId: 1,
-          merchantId: 1,
+          categoryId: const Value(1),
+          merchantId: const Value(1),
           amountMinor: 300000, // ₦3,000.00
           type: 'transfer_out',
           description: 'Transfer to Wallet',
@@ -141,8 +141,8 @@ void main() {
         inEntry: TransactionsCompanion.insert(
           profileId: profileId,
           accountId: destId,
-          categoryId: 1,
-          merchantId: 1,
+          categoryId: const Value(1),
+          merchantId: const Value(1),
           amountMinor: 300000, // ₦3,000.00
           type: 'transfer_in',
           description: 'Transfer from Bank',
@@ -187,8 +187,8 @@ void main() {
         TransactionsCompanion.insert(
           profileId: profileId,
           accountId: accountId,
-          categoryId: 1,
-          merchantId: 1,
+          categoryId: const Value(1),
+          merchantId: const Value(1),
           amountMinor: 200000, // ₦2,000 spent
           type: 'debit',
           description: 'Budgeted Expense',

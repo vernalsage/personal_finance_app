@@ -4,11 +4,14 @@ import '../screens/dashboard/dashboard_screen.dart';
 import '../screens/transactions/transactions_screen.dart';
 import '../screens/accounts/accounts_screen.dart';
 import '../screens/insights/insights_screen.dart';
-import '../screens/settings/settings_screen.dart'; // We'll create a basic settings/more screen
+import '../screens/settings/settings_screen.dart';
+import '../screens/budget/budget_screen.dart';
+import '../../domain/entities/budget.dart';
+import '../providers/budget_providers.dart';
 import '../../main.dart';
 
 /// Main scaffold with bottom navigation:
-/// Home · Wallets · Insights · History · More
+/// Home · Wallets · Insights · Budget · More
 class MainScaffold extends ConsumerStatefulWidget {
   const MainScaffold({super.key});
 
@@ -23,12 +26,21 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
     DashboardScreen(),
     AccountsScreen(),
     InsightsScreen(),
-    TransactionsScreen(initialFilter: 'All'),
+    BudgetScreen(),
     SettingsScreen(),
   ];
 
   @override
   Widget build(BuildContext context) {
+    // Listen for budget alerts
+    ref.listen(budgetAlertProvider, (previous, next) {
+      if (next != null) {
+        _showBudgetAlert(context, next);
+        // Clear alert after showing
+        Future.microtask(() => ref.read(budgetAlertProvider.notifier).state = null);
+      }
+    });
+
     return Scaffold(
       body: IndexedStack(index: _selectedIndex, children: _screens),
       bottomNavigationBar: Container(
@@ -57,9 +69,9 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
               label: 'Insights',
             ),
             NavigationDestination(
-              icon: Icon(Icons.history_outlined),
-              selectedIcon: Icon(Icons.history),
-              label: 'History',
+              icon: Icon(Icons.pie_chart_outline),
+              selectedIcon: Icon(Icons.pie_chart),
+              label: 'Budget',
             ),
             NavigationDestination(
               icon: Icon(Icons.more_horiz_outlined),
@@ -67,6 +79,28 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
               label: 'More',
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  void _showBudgetAlert(BuildContext context, BudgetUsage usage) {
+    final isOver = usage.isOverBudget;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          isOver 
+            ? 'Budget Exceeded! Spent ${usage.usagePercentage.toStringAsFixed(1)}% of limit.'
+            : 'Budget Warning: Reached ${usage.usagePercentage.toStringAsFixed(1)}% of limit.',
+        ),
+        backgroundColor: isOver ? kError : kWarning,
+        behavior: SnackBarBehavior.floating,
+        action: SnackBarAction(
+          label: 'View',
+          textColor: Colors.white,
+          onPressed: () {
+            setState(() => _selectedIndex = 3); // Switch to Budget tab
+          },
         ),
       ),
     );

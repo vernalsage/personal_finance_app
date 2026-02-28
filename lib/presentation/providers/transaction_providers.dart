@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/entities/transaction.dart';
+import '../../domain/entities/transaction_with_details.dart';
 import '../../domain/usecases/transaction_usecases.dart';
 import '../../core/di/repository_providers.dart';
 import '../../core/di/usecase_providers.dart';
@@ -15,12 +16,12 @@ class TransactionsState {
     this.error,
   });
 
-  final List<Transaction> transactions;
+  final List<TransactionWithDetails> transactions;
   final bool isLoading;
   final String? error;
 
   TransactionsState copyWith({
-    List<Transaction>? transactions,
+    List<TransactionWithDetails>? transactions,
     bool? isLoading,
     String? error,
   }) {
@@ -106,12 +107,16 @@ class TransactionsNotifier extends StateNotifier<TransactionsState> {
     final result = await _createTransactionUseCase(transaction);
 
     if (result.isSuccess) {
-      // Refresh related providers to reflect changes immediately
+      // Refresh related providers
       await _ref.read(accountsProvider.notifier).loadAccounts(transaction.profileId);
       _ref.invalidate(budgetsProvider);
       _ref.invalidate(goalsProvider);
+      _ref.invalidate(totalBudgetSummaryProvider);
       
-      // Refresh the transactions list
+      if (transaction.type == 'debit' && transaction.categoryId != null) {
+        _checkBudgetStatus(transaction);
+      }
+      
       await loadTransactions(transaction.profileId);
     } else {
       state = state.copyWith(
@@ -133,17 +138,39 @@ class TransactionsNotifier extends StateNotifier<TransactionsState> {
     final result = await _updateTransactionUseCase!(transaction);
 
     if (result.isSuccess) {
-      // Refresh related providers
       await _ref.read(accountsProvider.notifier).loadAccounts(transaction.profileId);
       _ref.invalidate(budgetsProvider);
       _ref.invalidate(goalsProvider);
+      _ref.invalidate(totalBudgetSummaryProvider);
       
-      // Refresh the transactions list
+      if (transaction.type == 'debit' && transaction.categoryId != null) {
+        _checkBudgetStatus(transaction);
+      }
+      
       await loadTransactions(transaction.profileId);
     } else {
       state = state.copyWith(
         isLoading: false,
         error: result.failureData?.toString() ?? 'Unknown error',
+      );
+    }
+  }
+
+  /// Mark a transaction as reviewed
+  Future<void> approveTransaction(TransactionWithDetails tx) async {
+    if (_updateTransactionUseCase == null) return;
+    
+    final updated = tx.transaction.copyWith(requiresReview: false);
+    state = state.copyWith(isLoading: true, error: null);
+    
+    final result = await _updateTransactionUseCase!(updated);
+    
+    if (result.isSuccess) {
+      await loadTransactions(tx.transaction.profileId);
+    } else {
+      state = state.copyWith(
+        isLoading: false,
+        error: result.failureData?.toString() ?? 'Failed to approve transaction',
       );
     }
   }
@@ -160,12 +187,10 @@ class TransactionsNotifier extends StateNotifier<TransactionsState> {
     final result = await _deleteTransactionUseCase!(transactionId);
 
     if (result.isSuccess) {
-      // Refresh related providers
       await _ref.read(accountsProvider.notifier).loadAccounts(profileId);
       _ref.invalidate(budgetsProvider);
       _ref.invalidate(goalsProvider);
       
-      // Refresh the transactions list
       await loadTransactions(profileId);
     } else {
       state = state.copyWith(
@@ -178,6 +203,31 @@ class TransactionsNotifier extends StateNotifier<TransactionsState> {
   /// Refresh transactions list
   Future<void> refreshTransactions(int profileId) async {
     await loadTransactions(profileId);
+  }
+
+  /// Helper to check budget status and trigger alerts
+  Future<void> _checkBudgetStatus(Transaction transaction) async {
+    try {
+      final repository = _ref.read(budgetRepositoryProvider);
+      final budgetResult = await repository.getBudgetForPeriod(
+        transaction.profileId,
+        transaction.categoryId!,
+        transaction.timestamp.month,
+        transaction.timestamp.year,
+      );
+
+      if (budgetResult.isSuccess && budgetResult.successData != null) {
+        final usageResult = await repository.getBudgetUsage(budgetResult.successData!.id);
+        if (usageResult.isSuccess) {
+          final usage = usageResult.successData!;
+          if (usage.isOverBudget || usage.isNearLimit) {
+            _ref.read(budgetAlertProvider.notifier).state = usage;
+          }
+        }
+      }
+    } catch (e) {
+      // Non-critical error, just log
+    }
   }
 
   /// Clear any error state

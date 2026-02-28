@@ -7,6 +7,9 @@ import '../../domain/entities/account.dart' as domain_account;
 import '../../domain/repositories/itransaction_repository.dart';
 import '../../domain/core/result.dart';
 import '../../domain/entities/transaction.dart' as domain;
+import '../../application/services/hybrid_currency_service.dart';
+import '../../domain/entities/transaction_with_details.dart';
+import 'package:drift/drift.dart';
 
 /// Implementation of ITransactionRepository using Drift DAO
 class TransactionRepositoryImpl implements ITransactionRepository {
@@ -150,8 +153,8 @@ class TransactionRepositoryImpl implements ITransactionRepository {
         id: 0,
         profileId: profileId,
         accountId: fromAccountId,
-        categoryId: 1, // Default/Transfer category
-        merchantId: 1, // System merchant
+        categoryId: null, // No category for transfer by default
+        merchantId: null, // No merchant for transfer
         amountMinor: -fromAmountMinor,
         type: 'transfer_out',
         description: description,
@@ -166,8 +169,8 @@ class TransactionRepositoryImpl implements ITransactionRepository {
         id: 0,
         profileId: profileId,
         accountId: toAccountId,
-        categoryId: 1,
-        merchantId: 1,
+        categoryId: null,
+        merchantId: null,
         amountMinor: toAmountMinor,
         type: 'transfer_in',
         description: description,
@@ -258,33 +261,62 @@ class TransactionRepositoryImpl implements ITransactionRepository {
     int profileId, {
     DateTime? startDate,
     DateTime? endDate,
+    String? targetCurrency,
   }) async {
     try {
-      final income = await _transactionsDao.getTotalAmountByType(
-        profileId,
-        'credit',
-        startDate: startDate,
-        endDate: endDate,
-      );
-      final expense = await _transactionsDao.getTotalAmountByType(
-        profileId,
-        'debit',
-        startDate: startDate,
-        endDate: endDate,
-      );
-
-      final count = await _transactionsDao.getTransactionCount(
+      // If targetCurrency is null, we use a simple DB sum (legacy behavior/optimization for single currency)
+      // But for multi-currency safety, we should really always use the base currency.
+      // We'll use getTransactionsWithDetails to get account currencies.
+      
+      final transactionsResult = await getTransactionsWithDetails(
         profileId: profileId,
         startDate: startDate,
         endDate: endDate,
       );
 
+      if (transactionsResult.isFailure) {
+        return Failure(transactionsResult.failureData!);
+      }
+
+      final transactions = transactionsResult.successData!;
+      double totalIncomeBase = 0;
+      double totalExpenseBase = 0;
+      int count = transactions.length;
+
+      for (final detail in transactions) {
+        final amount = detail.transaction.amountMinor.abs() / 100.0;
+        final fromCurrency = detail.account?.currency ?? 'NGN';
+        final isIncome = detail.transaction.type == 'credit' || detail.transaction.type == 'transfer_in';
+        final isExpense = detail.transaction.type == 'debit' || detail.transaction.type == 'transfer_out';
+
+        // ... Skip if neither ...
+        if (!isIncome && !isExpense) continue;
+
+        double converted = amount;
+        if (targetCurrency != null && fromCurrency != targetCurrency) {
+          converted = await HybridCurrencyService.convertCurrency(
+            amount: amount,
+            fromCurrency: fromCurrency,
+            toCurrency: targetCurrency,
+          );
+        }
+
+        if (isIncome) {
+          totalIncomeBase += converted;
+        } else {
+          totalExpenseBase += converted;
+        }
+      }
+
+      final incomeMinor = (totalIncomeBase * 100).round();
+      final expenseMinor = (totalExpenseBase * 100).round();
+
       return Success(TransactionStats(
-        totalIncome: income,
-        totalExpenses: expense,
-        netIncome: income - expense,
+        totalIncome: incomeMinor,
+        totalExpenses: expenseMinor,
+        netIncome: incomeMinor - expenseMinor,
         transactionCount: count,
-        averageTransactionAmount: count > 0 ? (expense / count) : 0,
+        averageTransactionAmount: count > 0 ? (totalExpenseBase * 100 / count) : 0,
       ));
     } catch (e) {
       return Failure(Exception('Failed to get transaction stats: $e'));
@@ -292,7 +324,7 @@ class TransactionRepositoryImpl implements ITransactionRepository {
   }
 
   @override
-  Future<Result<List<TransactionWithJoinedDetails>, Exception>>
+  Future<Result<List<TransactionWithDetails>, Exception>>
   getTransactionsWithDetails({
     int? profileId,
     int? accountId,
@@ -301,6 +333,8 @@ class TransactionRepositoryImpl implements ITransactionRepository {
     DateTime? startDate,
     DateTime? endDate,
     bool? requiresReview,
+    int? limit,
+    int? offset,
   }) async {
     try {
       final transactionsWithDetails = await _transactionsDao
@@ -315,8 +349,8 @@ class TransactionRepositoryImpl implements ITransactionRepository {
           );
 
       final result = transactionsWithDetails.map((detail) {
-        // Provide a dummy account if the join failed, though this indicates broken references
-        final mappedAccount = detail.account?.toEntity() ?? 
+        // Provide a dummy account if the join failed
+        final domainAccount = detail.account?.toEntity() ?? 
             domain_account.Account(
               id: 0,
               profileId: detail.transaction.profileId,
@@ -327,9 +361,9 @@ class TransactionRepositoryImpl implements ITransactionRepository {
               isActive: false,
             );
 
-        return TransactionWithJoinedDetails(
+        return TransactionWithDetails(
           transaction: detail.transaction.toEntity(),
-          account: mappedAccount,
+          account: domainAccount,
           category: detail.category?.toEntity(),
           merchant: detail.merchant?.toEntity(),
         );

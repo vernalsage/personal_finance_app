@@ -2,12 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../domain/entities/transaction.dart';
+import '../../../domain/entities/transaction_with_details.dart';
 import '../../../core/utils/currency_utils.dart';
 import '../../../main.dart';
 import '../../providers/transaction_providers.dart' as providers;
-import '../../providers/account_providers.dart';
-import 'package:collection/collection.dart';
-
+import '../transaction/add_transaction_screen.dart';
 
 class TransactionsScreen extends ConsumerStatefulWidget {
   final String? initialFilter;
@@ -38,33 +37,35 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
     super.dispose();
   }
 
-  List<Transaction> _getFiltered(List<Transaction> transactions) {
+  List<TransactionWithDetails> _getFiltered(List<TransactionWithDetails> transactions) {
     var list = transactions;
     if (_searchQuery.isNotEmpty) {
       list = list
           .where((t) =>
-              t.description.toLowerCase().contains(_searchQuery.toLowerCase()))
+              t.transaction.description.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+              (t.merchant?.name.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false) ||
+              (t.category?.name.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false))
           .toList();
     }
     switch (_selectedFilter) {
       case 'Credits':
-        list = list.where((t) => t.amountMinor > 0).toList();
+        list = list.where((t) => t.transaction.amountMinor > 0).toList();
         break;
       case 'Debits':
-        list = list.where((t) => t.amountMinor < 0).toList();
+        list = list.where((t) => t.transaction.amountMinor < 0).toList();
         break;
       case 'Pending':
-        list = list.where((t) => t.requiresReview).toList();
+        list = list.where((t) => t.transaction.requiresReview).toList();
         break;
     }
     return list;
   }
 
   // Group transactions by date label
-  Map<String, List<Transaction>> _getGrouped(List<Transaction> transactions) {
-    final result = <String, List<Transaction>>{};
+  Map<String, List<TransactionWithDetails>> _getGrouped(List<TransactionWithDetails> transactions) {
+    final result = <String, List<TransactionWithDetails>>{};
     for (final t in _getFiltered(transactions)) {
-      final label = _dateLabel(t.timestamp);
+      final label = _dateLabel(t.transaction.timestamp);
       result.putIfAbsent(label, () => []).add(t);
     }
     return result;
@@ -103,6 +104,14 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
             : null,
         automaticallyImplyLeading: false,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.add, color: kPrimary),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const AddTransactionScreen()),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.calendar_today_outlined,
                 color: kTextSecondary, size: 20),
@@ -249,7 +258,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                                 final t = entry.value;
                                 return Column(
                                   children: [
-                                    _TransactionCard(transaction: t),
+                                    _TransactionCard(transactionWithDetails: t),
                                     if (i < txList.length - 1)
                                       const Divider(
                                           height: 1, indent: 60, endIndent: 16),
@@ -268,10 +277,10 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
     );
   }
 
-  Widget _buildFilterPill(String label, List<Transaction> transactions) {
+  Widget _buildFilterPill(String label, List<TransactionWithDetails> transactions) {
     final isActive = _selectedFilter == label;
     final pendingCount = label == 'Pending'
-        ? transactions.where((t) => t.requiresReview).length
+        ? transactions.where((t) => t.transaction.requiresReview).length
         : 0;
 
     return GestureDetector(
@@ -325,24 +334,34 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
 // ─── Transaction Card (row) ────────────────────────────────────────────────────
 
 class _TransactionCard extends ConsumerWidget {
-  final Transaction transaction;
-  const _TransactionCard({required this.transaction});
+  final TransactionWithDetails transactionWithDetails;
+  const _TransactionCard({required this.transactionWithDetails});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final transaction = transactionWithDetails.transaction;
+    final category = transactionWithDetails.category;
+    final merchant = transactionWithDetails.merchant;
+    
     final isCredit = transaction.amountMinor >= 0;
     final amountColor = isCredit ? kSuccess : kError;
-    final iconColor = _getCategoryColor(transaction.description);
     
-    // Get currency from accounts provider
-    final accountsState = ref.watch(accountsProvider);
-    final account = accountsState.accounts.firstWhereOrNull((a) => a.id == transaction.accountId);
-    final currency = account?.currency ?? 'NGN';
+    // Dynamic Icon/Color from Category
+    final iconData = _getIconData(category?.icon, transaction.type);
+    final iconColor = _getColor(category?.color, transaction.type);
+
+    final currency = transactionWithDetails.account?.currency ?? 'NGN';
     final amount = CurrencyUtils.formatMinorToDisplay(
         transaction.amountMinor.abs(), currency);
 
     return InkWell(
-      onTap: () {},
+      onTap: () {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => AddTransactionScreen(transaction: transaction),
+          ),
+        );
+      },
       borderRadius: BorderRadius.circular(12),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -356,8 +375,7 @@ class _TransactionCard extends ConsumerWidget {
                 color: iconColor.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Icon(_getCategoryIcon(transaction.description),
-                  color: iconColor, size: 20),
+              child: Icon(iconData, color: iconColor, size: 20),
             ),
             const SizedBox(width: 12),
             // Details
@@ -366,32 +384,75 @@ class _TransactionCard extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    transaction.description,
+                    merchant?.name ?? transaction.description,
                     style: Theme.of(context).textTheme.bodyLarge,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 2),
-                  Text(
-                    _getCategoryName(transaction.description),
-                    style: Theme.of(context)
-                        .textTheme
-                        .bodySmall
-                        ?.copyWith(color: kTextSecondary),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  Row(
+                    children: [
+                      Text(
+                        category?.name ?? 'Other',
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodySmall
+                            ?.copyWith(color: kTextSecondary),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (transaction.requiresReview) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: kWarning.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text(
+                            'REVIEW',
+                            style: TextStyle(
+                              color: kWarning,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ],
               ),
             ),
             const SizedBox(width: 8),
-            // Amount
-            Text(
-              '${isCredit ? '+' : '-'}$amount',
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: amountColor,
-                fontWeight: FontWeight.w700,
-              ),
+            // Amount & Actions
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  '${isCredit ? '+' : '-'}$amount',
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: amountColor,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                if (transaction.requiresReview)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: InkWell(
+                      onTap: () => ref.read(providers.transactionsProvider.notifier).approveTransaction(transactionWithDetails),
+                      child: const Text(
+                        'Approve',
+                        style: TextStyle(
+                          color: kPrimary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ],
         ),
@@ -399,66 +460,36 @@ class _TransactionCard extends ConsumerWidget {
     );
   }
 
-  Color _getCategoryColor(String? desc) {
-    switch (desc?.toLowerCase()) {
-      case 'apple store':
-        return const Color(0xFF6366F1);
-      case 'monthly salary':
-      case 'techcorp ltd':
-        return const Color(0xFF16A34A);
-      case 'starbucks coffee':
-      case 'chicken republic':
-        return const Color(0xFFEA580C);
-      case 'uber trip':
-      case 'bolt':
-        return const Color(0xFF2563EB);
-      case 'utility bill':
-      case 'ikedc':
-        return const Color(0xFFF59E0B);
-      default:
-        return const Color(0xFF6B7A8D);
+  IconData _getIconData(String? iconName, String type) {
+    if (type == 'transfer_out' || type == 'transfer_in') {
+      return Icons.swap_horiz_outlined;
+    }
+    
+    switch (iconName?.toLowerCase()) {
+      case 'shopping_cart': return Icons.shopping_cart_outlined;
+      case 'restaurant': return Icons.restaurant_outlined;
+      case 'directions_car': return Icons.directions_car_outlined;
+      case 'home': return Icons.home_outlined;
+      case 'payments': return Icons.payments_outlined;
+      case 'receipt': return Icons.receipt_outlined;
+      case 'bolt': return Icons.bolt_outlined;
+      case 'coffee': return Icons.coffee_outlined;
+      case 'phone_iphone': return Icons.phone_iphone_outlined;
+      default: return Icons.receipt_outlined;
     }
   }
 
-  IconData _getCategoryIcon(String? desc) {
-    switch (desc?.toLowerCase()) {
-      case 'apple store':
-        return Icons.phone_iphone_outlined;
-      case 'monthly salary':
-      case 'techcorp ltd':
-        return Icons.payments_outlined;
-      case 'starbucks coffee':
-      case 'chicken republic':
-        return Icons.coffee_outlined;
-      case 'uber trip':
-      case 'bolt':
-        return Icons.directions_car_outlined;
-      case 'utility bill':
-      case 'ikedc':
-        return Icons.bolt_outlined;
-      default:
-        return Icons.receipt_outlined;
+  Color _getColor(String? colorHex, String type) {
+    if (type == 'transfer_out' || type == 'transfer_in') {
+      return kPrimary;
     }
-  }
-
-  String _getCategoryName(String? desc) {
-    switch (desc?.toLowerCase()) {
-      case 'apple store':
-        return 'Electronics';
-      case 'monthly salary':
-      case 'techcorp ltd':
-        return 'Income';
-      case 'starbucks coffee':
-      case 'chicken republic':
-        return 'Food & Drink';
-      case 'uber trip':
-      case 'bolt':
-        return 'Transport';
-      case 'utility bill':
-      case 'ikedc':
-        return 'Bills';
-      default:
-        return 'Other';
+    
+    if (colorHex == null || colorHex.isEmpty) return kTextSecondary;
+    try {
+      final hex = colorHex.replaceAll('#', '');
+      return Color(int.parse('FF$hex', radix: 16));
+    } catch (_) {
+      return kTextSecondary;
     }
   }
 }
