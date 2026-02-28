@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/security_providers.dart';
+import '../../../core/style/app_colors.dart';
 import '../../../main.dart'; // For theme constants
 
 class LockScreen extends ConsumerWidget {
@@ -10,8 +11,10 @@ class LockScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final securityState = ref.watch(securityProvider);
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: kBackground,
+      backgroundColor: AppColors.background(isDark),
       body: Container(
         width: double.infinity,
         decoration: BoxDecoration(
@@ -19,8 +22,8 @@ class LockScreen extends ConsumerWidget {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              kPrimary.withValues(alpha: 0.05),
-              kBackground,
+              AppColors.primary.withValues(alpha: 0.05),
+              AppColors.background(isDark),
             ],
           ),
         ),
@@ -31,12 +34,12 @@ class LockScreen extends ConsumerWidget {
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: kSurface,
+                color: AppColors.surface(isDark),
                 shape: BoxShape.circle,
-                border: Border.all(color: kBorder.withValues(alpha: 0.5)),
+                border: Border.all(color: AppColors.border(isDark).withValues(alpha: 0.5)),
                 boxShadow: [
                   BoxShadow(
-                    color: kPrimary.withValues(alpha: 0.1),
+                    color: AppColors.primary.withValues(alpha: 0.1),
                     blurRadius: 20,
                     spreadRadius: 5,
                   ),
@@ -45,7 +48,7 @@ class LockScreen extends ConsumerWidget {
               child: const Icon(
                 Icons.lock_person_outlined,
                 size: 64,
-                color: kPrimary,
+                color: AppColors.primary,
               ),
             ),
             const SizedBox(height: 32),
@@ -53,7 +56,7 @@ class LockScreen extends ConsumerWidget {
               'App Locked',
               style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                     fontWeight: FontWeight.w700,
-                    color: kTextPrimary,
+                    color: AppColors.textPrimary(isDark),
                   ),
             ),
             const SizedBox(height: 12),
@@ -63,20 +66,20 @@ class LockScreen extends ConsumerWidget {
                 'Please authenticate to access your financial records.',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: kTextSecondary,
+                      color: AppColors.textSecondary(isDark),
                     ),
               ),
             ),
             const SizedBox(height: 48),
             if (securityState.isAuthenticating)
-              const CircularProgressIndicator(color: kPrimary)
+              const CircularProgressIndicator(color: AppColors.primary)
             else
               ElevatedButton.icon(
                 onPressed: () => ref.read(securityProvider.notifier).authenticate(),
                 icon: const Icon(Icons.fingerprint),
                 label: const Text('Unlock with Biometrics'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: kPrimary,
+                  backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
                   shape: RoundedRectangleBorder(
@@ -92,7 +95,7 @@ class LockScreen extends ConsumerWidget {
               },
               child: Text(
                 'Use Alternative Method',
-                style: TextStyle(color: kPrimary.withValues(alpha: 0.7)),
+                style: TextStyle(color: AppColors.primary.withValues(alpha: 0.7)),
               ),
             ),
           ],

@@ -5,6 +5,7 @@ import '../../providers/category_providers.dart';
 import '../../widgets/loading_widget.dart';
 import '../../widgets/formatted_number_input.dart';
 import '../../../domain/entities/recurring_rule.dart';
+import '../../../core/style/app_colors.dart';
 import '../../../main.dart';
 import '../../providers/account_providers.dart';
 
@@ -59,7 +60,7 @@ class _AddRecurringRuleScreenState extends ConsumerState<AddRecurringRuleScreen>
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e'), backgroundColor: kError),
+        SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error),
       );
     }
   }
@@ -70,7 +71,7 @@ class _AddRecurringRuleScreenState extends ConsumerState<AddRecurringRuleScreen>
     final categoriesAsync = ref.watch(categoriesProvider);
 
     return Scaffold(
-      backgroundColor: kBackground,
+      backgroundColor: AppColors.background(Theme.of(context).brightness == Brightness.dark),
       appBar: AppBar(
         title: const Text('Add Recurring Payment'),
       ),

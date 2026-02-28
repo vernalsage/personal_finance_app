@@ -9,7 +9,21 @@ class BudgetsDao extends DatabaseAccessor<AppDatabase> with _$BudgetsDaoMixin {
   BudgetsDao(super.db);
 
   Future<Budget> createBudget(BudgetsCompanion entry) =>
-      into(budgets).insertReturning(entry);
+      into(budgets).insertReturning(
+        entry,
+        onConflict: DoUpdate(
+          (old) => BudgetsCompanion(
+            amountMinor: entry.amountMinor,
+            updatedAt: Value(DateTime.now()),
+          ),
+          target: [
+            budgets.profileId,
+            budgets.categoryId,
+            budgets.month,
+            budgets.year
+          ],
+        ),
+      );
   Future<Budget> getBudget(int id) =>
       (select(budgets)..where((b) => b.id.equals(id))).getSingle();
   Future<List<Budget>> getAllBudgets({

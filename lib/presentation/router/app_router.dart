@@ -8,6 +8,7 @@ import '../screens/settings/settings_screen.dart';
 import '../screens/budget/budget_screen.dart';
 import '../../domain/entities/budget.dart';
 import '../providers/budget_providers.dart';
+import '../../core/style/app_colors.dart';
 import '../../main.dart';
 
 /// Main scaffold with bottom navigation:
@@ -32,20 +33,11 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
 
   @override
   Widget build(BuildContext context) {
-    // Listen for budget alerts
-    ref.listen(budgetAlertProvider, (previous, next) {
-      if (next != null) {
-        _showBudgetAlert(context, next);
-        // Clear alert after showing
-        Future.microtask(() => ref.read(budgetAlertProvider.notifier).state = null);
-      }
-    });
-
     return Scaffold(
       body: IndexedStack(index: _selectedIndex, children: _screens),
       bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-          border: Border(top: BorderSide(color: kBorder, width: 1)),
+        decoration: BoxDecoration(
+          border: Border(top: BorderSide(color: AppColors.border(Theme.of(context).brightness == Brightness.dark), width: 1)),
         ),
         child: NavigationBar(
           selectedIndex: _selectedIndex,
@@ -84,25 +76,4 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
     );
   }
 
-  void _showBudgetAlert(BuildContext context, BudgetUsage usage) {
-    final isOver = usage.isOverBudget;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          isOver 
-            ? 'Budget Exceeded! Spent ${usage.usagePercentage.toStringAsFixed(1)}% of limit.'
-            : 'Budget Warning: Reached ${usage.usagePercentage.toStringAsFixed(1)}% of limit.',
-        ),
-        backgroundColor: isOver ? kError : kWarning,
-        behavior: SnackBarBehavior.floating,
-        action: SnackBarAction(
-          label: 'View',
-          textColor: Colors.white,
-          onPressed: () {
-            setState(() => _selectedIndex = 3); // Switch to Budget tab
-          },
-        ),
-      ),
-    );
-  }
 }

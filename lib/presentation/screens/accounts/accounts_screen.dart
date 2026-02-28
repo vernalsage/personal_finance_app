@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../domain/entities/account.dart';
-import '../../../core/utils/currency_utils.dart';
-import '../../../main.dart';
 import '../../providers/account_providers.dart';
+import '../../providers/profile_providers.dart';
+import '../../../domain/entities/account.dart';
+import '../../widgets/loading_widget.dart';
+import '../../../core/utils/currency_utils.dart';
 import '../../../core/di/usecase_providers.dart';
+import '../../../core/style/app_colors.dart';
+import '../../../main.dart';
 
 class AccountsScreen extends ConsumerStatefulWidget {
   const AccountsScreen({super.key});
@@ -15,68 +18,84 @@ class AccountsScreen extends ConsumerStatefulWidget {
 }
 
 class _AccountsScreenState extends ConsumerState<AccountsScreen> {
+  Future<void> _loadData() async {
+    await ref.read(accountsProvider.notifier).loadAccounts(1);
+  }
+
   @override
   Widget build(BuildContext context) {
     final accountsState = ref.watch(accountsProvider);
     final accounts = accountsState.accounts;
 
     return Scaffold(
-      backgroundColor: kBackground,
       appBar: AppBar(
         title: const Text('Wallets'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.add, color: kPrimary),
+            icon: const Icon(Icons.add, color: AppColors.primary),
             onPressed: () => _navigateToAddAccount(context),
           ),
         ],
       ),
-      body: accounts.isEmpty
-          ? Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
+      body: RefreshIndicator(
+        color: AppColors.primary,
+        onRefresh: _loadData,
+        child: accounts.isEmpty && !accountsState.isLoading
+            ? ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
                 children: [
-                  Container(
-                    width: 72,
-                    height: 72,
-                    decoration: BoxDecoration(
-                      color: kPrimaryBg,
-                      shape: BoxShape.circle,
+                  SizedBox(height: MediaQuery.of(context).size.height * 0.2),
+                  Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 72,
+                          height: 72,
+                          decoration: const BoxDecoration(
+                            color: AppColors.primaryBg,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.account_balance_wallet_outlined,
+                              color: AppColors.primary, size: 32),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'No accounts yet',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Tap + to add your first account',
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                        const SizedBox(height: 20),
+                        ElevatedButton.icon(
+                          onPressed: () => _navigateToAddAccount(context),
+                          icon: const Icon(Icons.add, size: 18),
+                          label: const Text('Add Account'),
+                        ),
+                      ],
                     ),
-                    child: const Icon(Icons.account_balance_wallet_outlined,
-                        color: kPrimary, size: 32),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'No accounts yet',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Tap + to add your first account',
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                  const SizedBox(height: 20),
-                  ElevatedButton.icon(
-                    onPressed: () => _navigateToAddAccount(context),
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('Add Account'),
                   ),
                 ],
-              ),
-            )
-          : ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: accounts.length,
-              itemBuilder: (context, index) {
-                final account = accounts[index];
-                return _AccountCard(
-                  account: account,
-                  onEdit: () => _navigateToEditAccount(context, account),
-                  onDelete: () => _confirmDelete(context, account),
-                );
-              },
-            ),
+              )
+            : accountsState.isLoading && accounts.isEmpty
+                ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+                : ListView.builder(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.all(16),
+                    itemCount: accounts.length,
+                    itemBuilder: (context, index) {
+                      final account = accounts[index];
+                      return _AccountCard(
+                        account: account,
+                        onEdit: () => _navigateToEditAccount(context, account),
+                        onDelete: () => _confirmDelete(context, account),
+                      );
+                    },
+                  ),
+      ),
     );
   }
 
@@ -107,20 +126,17 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: kError.withOpacity(0.06),
+                color: AppColors.error.withOpacity(0.06),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Row(
+              child: const Row(
                 children: [
-                  Icon(Icons.warning_amber_outlined, color: kError, size: 16),
-                  const SizedBox(width: 8),
+                  Icon(Icons.warning_amber_outlined, color: AppColors.error, size: 16),
+                  SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       'This cannot be undone. All related transactions will be deleted.',
-                      style: Theme.of(context)
-                          .textTheme
-                          .bodySmall
-                          ?.copyWith(color: kError),
+                      style: TextStyle(color: AppColors.error, fontSize: 11),
                     ),
                   ),
                 ],
@@ -138,7 +154,7 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
               Navigator.of(ctx).pop();
               await _deleteAccount(account.id);
             },
-            style: ElevatedButton.styleFrom(backgroundColor: kError),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
             child: const Text('Delete'),
           ),
         ],
@@ -155,14 +171,14 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Account deleted successfully'),
-          backgroundColor: kSuccess,
+          backgroundColor: AppColors.success,
         ),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error: ${result.failureData?.toString()}'),
-          backgroundColor: kError,
+          backgroundColor: AppColors.error,
         ),
       );
     }
@@ -187,13 +203,8 @@ class _AccountCard extends StatelessWidget {
     final isPositive = account.balanceMinor >= 0;
     final typeColor = _getTypeColor(account.type);
 
-    return Container(
+    return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: kCardBg,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: kBorder),
-      ),
       child: Column(
         children: [
           // Header
@@ -206,7 +217,7 @@ class _AccountCard extends StatelessWidget {
                 end: Alignment.bottomRight,
               ),
               borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(15)),
+                  const BorderRadius.vertical(top: Radius.circular(11)),
             ),
             child: Row(
               children: [
@@ -239,8 +250,7 @@ class _AccountCard extends StatelessWidget {
                   ),
                 ),
                 PopupMenuButton<String>(
-                  icon: Icon(Icons.more_vert,
-                      color: kTextSecondary, size: 20),
+                  icon: const Icon(Icons.more_vert, size: 20),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12)),
                   onSelected: (v) {
@@ -251,7 +261,7 @@ class _AccountCard extends StatelessWidget {
                     const PopupMenuItem(
                       value: 'edit',
                       child: Row(children: [
-                        Icon(Icons.edit_outlined, size: 18, color: kTextPrimary),
+                        Icon(Icons.edit_outlined, size: 18),
                         SizedBox(width: 10),
                         Text('Edit'),
                       ]),
@@ -259,10 +269,10 @@ class _AccountCard extends StatelessWidget {
                     const PopupMenuItem(
                       value: 'delete',
                       child: Row(children: [
-                        Icon(Icons.delete_outline, size: 18, color: kError),
+                        Icon(Icons.delete_outline, size: 18, color: AppColors.error),
                         SizedBox(width: 10),
                         Text('Delete',
-                            style: TextStyle(color: kError)),
+                            style: TextStyle(color: AppColors.error)),
                       ]),
                     ),
                   ],
@@ -282,7 +292,7 @@ class _AccountCard extends StatelessWidget {
                   CurrencyUtils.formatMinorToDisplay(
                       account.balanceMinor, account.currency),
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: isPositive ? kSuccess : kError,
+                    color: isPositive ? AppColors.success : AppColors.error,
                     fontSize: 18,
                     fontWeight: FontWeight.w800,
                   ),
@@ -298,7 +308,7 @@ class _AccountCard extends StatelessWidget {
   Color _getTypeColor(String? type) {
     switch (type?.toLowerCase()) {
       case 'savings':
-        return kPrimary;
+        return AppColors.primary;
       case 'checking':
         return const Color(0xFF2563EB);
       case 'credit':
@@ -308,7 +318,7 @@ class _AccountCard extends StatelessWidget {
       case 'cash':
         return const Color(0xFF16A34A);
       default:
-        return kTextSecondary;
+        return Colors.grey;
     }
   }
 
@@ -340,10 +350,13 @@ class _TypeBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: isSecondary ? kBackground : kPrimaryBg,
+        color: isSecondary 
+            ? (isDark ? AppColors.surfaceDark : AppColors.backgroundLight) 
+            : AppColors.primaryBg.withOpacity(isDark ? 0.2 : 1.0),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
@@ -351,7 +364,7 @@ class _TypeBadge extends StatelessWidget {
         style: TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w600,
-          color: isSecondary ? kTextSecondary : kPrimary,
+          color: isSecondary ? (isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight) : AppColors.primary,
         ),
       ),
     );
@@ -416,7 +429,6 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: kBackground,
       appBar: AppBar(
         title: Text(_isEditing ? 'Edit Account' : 'Add Account'),
         leading: IconButton(
@@ -425,7 +437,7 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.help_outline, color: kTextSecondary),
+            icon: const Icon(Icons.help_outline),
             onPressed: () {},
           ),
         ],
@@ -440,12 +452,12 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
               child: Container(
                 width: 72,
                 height: 72,
-                decoration: BoxDecoration(
-                  color: kPrimaryBg,
+                decoration: const BoxDecoration(
+                  color: AppColors.primaryBg,
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(Icons.account_balance_wallet,
-                    color: kPrimary, size: 34),
+                    color: AppColors.primary, size: 34),
               ),
             ),
             const SizedBox(height: 12),
@@ -473,8 +485,7 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
               onChanged: (_) => setState(() => _nameError = null),
               decoration: InputDecoration(
                 hintText: 'e.g. Main Savings',
-                prefixIcon: const Icon(Icons.edit_outlined,
-                    color: kTextSecondary, size: 18),
+                prefixIcon: const Icon(Icons.edit_outlined, size: 18),
                 errorText: _nameError,
               ),
               textCapitalization: TextCapitalization.words,
@@ -496,8 +507,7 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
               ],
               decoration: const InputDecoration(
                 hintText: '0.00',
-                prefixIcon: Icon(Icons.account_balance_wallet_outlined,
-                    color: kTextSecondary, size: 18),
+                prefixIcon: Icon(Icons.account_balance_wallet_outlined, size: 18),
               ),
             ),
             const SizedBox(height: 20),
@@ -527,14 +537,14 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: kPrimaryBg,
+                  color: AppColors.primaryBg.withOpacity(Theme.of(context).brightness == Brightness.dark ? 0.1 : 1.0),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: kPrimary.withOpacity(0.2)),
+                  border: Border.all(color: AppColors.primary.withOpacity(0.2)),
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.info_outline, color: kPrimary, size: 18),
+                    const Icon(Icons.info_outline, color: AppColors.primary, size: 18),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
@@ -542,7 +552,7 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
                         style: Theme.of(context)
                             .textTheme
                             .bodySmall
-                            ?.copyWith(color: kPrimary.withOpacity(0.85)),
+                            ?.copyWith(color: AppColors.primary.withOpacity(0.85)),
                       ),
                     ),
                   ],
@@ -557,7 +567,7 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
               child: ElevatedButton(
                 onPressed: _isSaving ? null : _saveAccount,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: kPrimaryDark,
+                  backgroundColor: AppColors.primaryDark,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(40)),
@@ -611,17 +621,17 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
             padding:
                 const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
             decoration: BoxDecoration(
-              color: isSelected ? kPrimary : kCardBg,
+              color: isSelected ? AppColors.primary : Theme.of(context).cardTheme.color,
               borderRadius: BorderRadius.circular(40),
               border: Border.all(
-                  color: isSelected ? kPrimary : kBorder, width: 1.5),
+                  color: isSelected ? AppColors.primary : Theme.of(context).dividerTheme.color ?? Colors.grey.withOpacity(0.2), width: 1.5),
             ),
             child: Text(
               type['label'] as String,
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color: isSelected ? Colors.white : kTextSecondary,
+                color: isSelected ? Colors.white : Theme.of(context).textTheme.bodyMedium?.color,
               ),
             ),
           ),
@@ -641,9 +651,9 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: kCardBg,
+          color: Theme.of(context).cardTheme.color,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: kBorder),
+          border: Border.all(color: Theme.of(context).dividerTheme.color ?? Colors.grey.withOpacity(0.2)),
         ),
         child: Row(
           children: [
@@ -651,14 +661,14 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
               width: 28,
               height: 28,
               decoration: BoxDecoration(
-                color: kPrimaryBg,
+                color: AppColors.primaryBg.withOpacity(Theme.of(context).brightness == Brightness.dark ? 0.2 : 1.0),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Center(
                 child: Text(
                   selected['symbol']!,
                   style: const TextStyle(
-                      fontWeight: FontWeight.w700, color: kPrimary),
+                      fontWeight: FontWeight.w700, color: AppColors.primary),
                 ),
               ),
             ),
@@ -669,8 +679,7 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
                 style: Theme.of(context).textTheme.bodyLarge,
               ),
             ),
-            const Icon(Icons.keyboard_arrow_down,
-                color: kTextSecondary, size: 20),
+            const Icon(Icons.keyboard_arrow_down, size: 20),
           ],
         ),
       ),
@@ -680,7 +689,6 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
   void _showCurrencyPicker() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: kCardBg,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -692,7 +700,7 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
             height: 4,
             margin: const EdgeInsets.only(top: 12, bottom: 8),
             decoration: BoxDecoration(
-              color: kBorder,
+              color: Theme.of(context).dividerTheme.color,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -708,7 +716,7 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
                 width: 32,
                 height: 32,
                 decoration: BoxDecoration(
-                  color: isSelected ? kPrimary : kPrimaryBg,
+                  color: isSelected ? AppColors.primary : AppColors.primaryBg.withOpacity(Theme.of(context).brightness == Brightness.dark ? 0.2 : 1.0),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Center(
@@ -716,14 +724,14 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
                     c['symbol']!,
                     style: TextStyle(
                       fontWeight: FontWeight.w700,
-                      color: isSelected ? Colors.white : kPrimary,
+                      color: isSelected ? Colors.white : AppColors.primary,
                     ),
                   ),
                 ),
               ),
               title: Text(c['label']!),
               trailing: isSelected
-                  ? const Icon(Icons.check_circle, color: kPrimary)
+                  ? const Icon(Icons.check_circle, color: AppColors.primary)
                   : null,
               onTap: () {
                 setState(() => _selectedCurrency = c['code']!);
@@ -797,13 +805,13 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
     ref.read(accountsProvider.notifier).loadAccounts(1);
     Navigator.of(context).pop();
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), backgroundColor: kSuccess),
+      SnackBar(content: Text(msg), backgroundColor: AppColors.success),
     );
   }
 
   void _onError(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), backgroundColor: kError),
+      SnackBar(content: Text(msg), backgroundColor: AppColors.error),
     );
   }
 }

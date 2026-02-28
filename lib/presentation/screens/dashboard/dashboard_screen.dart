@@ -7,7 +7,7 @@ import '../../../core/utils/currency_utils.dart';
 import '../../../domain/entities/transaction.dart';
 import '../../../domain/entities/transaction_with_details.dart';
 import '../../../domain/entities/account.dart';
-import '../../../main.dart';
+import '../../../core/style/app_colors.dart';
 import '../../providers/account_providers.dart';
 import '../../providers/transaction_providers.dart';
 import '../transaction/add_transaction_screen.dart';
@@ -95,11 +95,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final reviewTransactions =
         transactionsState.transactions.where((t) => t.transaction.requiresReview).toList();
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: kBackground,
+      backgroundColor: AppColors.background(isDark),
       body: SafeArea(
         child: RefreshIndicator(
-          color: kPrimary,
+          color: AppColors.primary,
           onRefresh: () => _loadData(),
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
@@ -138,6 +140,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   Widget _buildHeader() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Row(
       children: [
         // Avatar
@@ -145,10 +148,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           width: 40,
           height: 40,
           decoration: BoxDecoration(
-            color: kPrimaryBg,
+            color: AppColors.primaryBg,
             shape: BoxShape.circle,
           ),
-          child: const Icon(Icons.person, color: kPrimary, size: 22),
+          child: const Icon(Icons.person, color: AppColors.primary, size: 22),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -158,7 +161,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               Text(
                 'WELCOME BACK',
                 style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: kTextSecondary,
+                  color: AppColors.textSecondary(isDark),
                   letterSpacing: 0.8,
                 ),
               ),
@@ -174,12 +177,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           onPressed: () => Navigator.of(context).push(
             MaterialPageRoute(builder: (_) => const RecurringRulesScreen()),
           ),
-          icon: const Icon(Icons.sync_outlined, color: kTextSecondary, size: 22),
+          icon: Icon(Icons.sync_outlined, color: AppColors.textSecondary(isDark), size: 22),
           style: IconButton.styleFrom(
-            backgroundColor: kCardBg,
+            backgroundColor: AppColors.card(isDark),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
-              side: const BorderSide(color: kBorder),
+              side: BorderSide(color: AppColors.border(isDark)),
             ),
           ),
         ),
@@ -187,13 +190,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         // Bell
         IconButton(
           onPressed: () {},
-          icon: const Icon(Icons.notifications_outlined,
-              color: kTextSecondary, size: 22),
+          icon: Icon(Icons.notifications_outlined,
+              color: AppColors.textSecondary(isDark), size: 22),
           style: IconButton.styleFrom(
-            backgroundColor: kCardBg,
+            backgroundColor: AppColors.card(isDark),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
-              side: const BorderSide(color: kBorder),
+              side: BorderSide(color: AppColors.border(isDark)),
             ),
           ),
         ),
@@ -327,9 +330,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: kWarning.withValues(alpha: 0.08),
+          color: AppColors.warning.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: kWarning.withValues(alpha: 0.3)),
+          border: Border.all(color: AppColors.warning.withValues(alpha: 0.3)),
         ),
         child: Row(
           children: [
@@ -337,7 +340,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               width: 3,
               height: 32,
               decoration: BoxDecoration(
-                color: kWarning,
+                color: AppColors.warning,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -349,7 +352,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   Text(
                     'NEEDS REVIEW',
                     style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: kWarning,
+                      color: AppColors.warning,
                       letterSpacing: 0.8,
                     ),
                   ),
@@ -357,7 +360,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     '$count Items Pending',
                     style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                       fontWeight: FontWeight.w600,
-                      color: kTextPrimary,
+                      color: AppColors.textPrimary(Theme.of(context).brightness == Brightness.dark),
                     ),
                   ),
                 ],
@@ -397,24 +400,24 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         if (transactionsState.isLoading)
           const Center(
               child: Padding(
-                  padding: EdgeInsets.all(32),
-                  child: CircularProgressIndicator(color: kPrimary)))
+                  padding: const EdgeInsets.all(32),
+                  child: CircularProgressIndicator(color: AppColors.primary)))
         else if (transactionsState.error != null)
           _buildEmptyState(
               icon: Icons.error_outline,
               message: 'Failed to load pending transactions: ${transactionsState.error}',
-              color: kError)
+              color: AppColors.error)
         else if (transactionsState.transactions.isEmpty)
           _buildEmptyState(
               icon: Icons.receipt_long_outlined,
               message: 'No transactions yet',
-              color: kTextSecondary)
+              color: AppColors.textSecondary(Theme.of(context).brightness == Brightness.dark))
         else
           Container(
             decoration: BoxDecoration(
-              color: kCardBg,
+              color: AppColors.card(Theme.of(context).brightness == Brightness.dark),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: kBorder),
+              border: Border.all(color: AppColors.border(Theme.of(context).brightness == Brightness.dark)),
             ),
             child: Column(
               children: transactionsState.transactions
@@ -453,9 +456,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(32),
       decoration: BoxDecoration(
-        color: kCardBg,
+        color: AppColors.card(Theme.of(context).brightness == Brightness.dark),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: kBorder),
+        border: Border.all(color: AppColors.border(Theme.of(context).brightness == Brightness.dark)),
       ),
       child: Column(
         children: [
@@ -473,7 +476,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         if (accountsState.accounts.isEmpty) {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
             content: Text('Please add an account first.'),
-            backgroundColor: kWarning,
+            backgroundColor: AppColors.warning,
           ));
           return;
         }
@@ -491,7 +494,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         PopupMenuItem(
           value: 'add_transaction',
           child: Row(children: [
-            Icon(Icons.add_circle_outline, color: kPrimary),
+            Icon(Icons.add_circle_outline, color: AppColors.primary),
             SizedBox(width: 10),
             Text('Add Transaction'),
           ]),
@@ -499,7 +502,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         PopupMenuItem(
           value: 'transfer_funds',
           child: Row(children: [
-            Icon(Icons.swap_horiz, color: kPrimary),
+            Icon(Icons.swap_horiz, color: AppColors.primary),
             SizedBox(width: 10),
             Text('Transfer Funds'),
           ]),
@@ -510,7 +513,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         height: 56,
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [kPrimary, kPrimaryDark],
+            colors: [AppColors.primary, AppColors.primaryDark],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -555,13 +558,13 @@ class _MetricCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: kCardBg,
+        color: AppColors.card(Theme.of(context).brightness == Brightness.dark),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: kBorder),
+        border: Border.all(color: AppColors.border(Theme.of(context).brightness == Brightness.dark)),
       ),
       child: Row(
         children: [
-          Icon(icon, color: kPrimary, size: 18),
+          Icon(icon, color: AppColors.primary, size: 18),
           const SizedBox(width: 8),
           Expanded(
             child: Column(
@@ -571,7 +574,7 @@ class _MetricCard extends StatelessWidget {
                     style: Theme.of(context)
                         .textTheme
                         .bodySmall
-                        ?.copyWith(color: kTextSecondary)),
+                        ?.copyWith(color: AppColors.textSecondary(Theme.of(context).brightness == Brightness.dark))),
                 Text(value,
                     style: Theme.of(context)
                         .textTheme
@@ -602,11 +605,12 @@ class _DashboardTransactionRow extends StatelessWidget {
     final merchant = transactionWithDetails.merchant;
     
     final isCredit = transaction.amountMinor >= 0;
-    final amountColor = isCredit ? kSuccess : kError;
+    final amountColor = isCredit ? AppColors.success : AppColors.error;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     
     // Use the same icon/color logic as TransactionsScreen
     final iconData = _getIconData(category?.icon, transaction.type);
-    final iconColor = _getColor(category?.color, transaction.type);
+    final iconColor = _getColor(category?.color, transaction.type, isDark);
     
     // Get currency from the account
     final account = transactionWithDetails.account;
@@ -676,7 +680,7 @@ class _DashboardTransactionRow extends StatelessWidget {
                   style: Theme.of(context)
                       .textTheme
                       .bodySmall
-                      ?.copyWith(color: kTextSecondary),
+                      ?.copyWith(color: AppColors.textSecondary(isDark)),
                 ),
               ],
             ),
@@ -705,17 +709,17 @@ class _DashboardTransactionRow extends StatelessWidget {
     }
   }
 
-  Color _getColor(String? colorHex, String type) {
+  Color _getColor(String? colorHex, String type, bool isDark) {
     if (type == 'transfer_out' || type == 'transfer_in') {
-      return kPrimary;
+      return AppColors.primary;
     }
     
-    if (colorHex == null || colorHex.isEmpty) return kTextSecondary;
+    if (colorHex == null || colorHex.isEmpty) return AppColors.textSecondary(isDark);
     try {
       final hex = colorHex.replaceAll('#', '');
       return Color(int.parse('FF$hex', radix: 16));
     } catch (_) {
-      return kTextSecondary;
+      return AppColors.textSecondary(isDark);
     }
   }
 
@@ -811,10 +815,11 @@ class _Chip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
       decoration: BoxDecoration(
-        color: isAccount ? kPrimaryBg : kBackground,
+        color: isAccount ? AppColors.primaryBg : AppColors.background(isDark),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
@@ -822,7 +827,7 @@ class _Chip extends StatelessWidget {
         style: TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w500,
-          color: isAccount ? kPrimary : kTextSecondary,
+          color: isAccount ? AppColors.primary : AppColors.textSecondary(isDark),
         ),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,

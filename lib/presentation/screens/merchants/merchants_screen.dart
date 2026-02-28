@@ -4,6 +4,7 @@ import 'merchant_details_screen.dart';
 import '../../providers/merchant_providers.dart';
 import '../../widgets/loading_widget.dart';
 import '../../widgets/error_widget.dart';
+import '../../../core/style/app_colors.dart';
 import '../../../main.dart';
 
 class MerchantsScreen extends ConsumerWidget {
@@ -13,8 +14,10 @@ class MerchantsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final merchantsAsync = ref.watch(merchantsProvider);
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: kBackground,
+      backgroundColor: AppColors.background(isDark),
       appBar: AppBar(
         title: const Text('Merchants'),
       ),
@@ -30,21 +33,21 @@ class MerchantsScreen extends ConsumerWidget {
                   return ListTile(
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
-                      side: const BorderSide(color: kBorder),
+                      side: BorderSide(color: AppColors.border(isDark)),
                     ),
-                    tileColor: kSurface,
+                    tileColor: AppColors.surface(isDark),
                     leading: Container(
                       width: 40,
                       height: 40,
                       decoration: BoxDecoration(
-                        color: kPrimaryBg,
+                        color: AppColors.primaryBg,
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: const Icon(Icons.storefront_outlined, color: kPrimary, size: 20),
+                      child: const Icon(Icons.storefront_outlined, color: AppColors.primary, size: 20),
                     ),
                     title: Text(merchant.name),
                     subtitle: Text(merchant.hasDefaultCategory ? 'Categorized Merchant' : 'User Added'),
-                    trailing: const Icon(Icons.chevron_right, color: kTextSecondary),
+                    trailing: Icon(Icons.chevron_right, color: AppColors.textSecondary(isDark)),
                     onTap: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(
@@ -69,7 +72,7 @@ class MerchantsScreen extends ConsumerWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.storefront_outlined, size: 64, color: kTextSecondary.withValues(alpha: 0.5)),
+          Icon(Icons.storefront_outlined, size: 64, color: AppColors.textSecondary(Theme.of(context).brightness == Brightness.dark).withValues(alpha: 0.5)),
           const SizedBox(height: 16),
           Text(
             'No merchants tracked yet',

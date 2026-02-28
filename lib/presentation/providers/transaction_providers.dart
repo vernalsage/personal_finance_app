@@ -109,9 +109,8 @@ class TransactionsNotifier extends StateNotifier<TransactionsState> {
     if (result.isSuccess) {
       // Refresh related providers
       await _ref.read(accountsProvider.notifier).loadAccounts(transaction.profileId);
-      _ref.invalidate(budgetsProvider);
+      _ref.invalidate(budgetOverviewProvider);
       _ref.invalidate(goalsProvider);
-      _ref.invalidate(totalBudgetSummaryProvider);
       
       if (transaction.type == 'debit' && transaction.categoryId != null) {
         _checkBudgetStatus(transaction);
@@ -139,9 +138,8 @@ class TransactionsNotifier extends StateNotifier<TransactionsState> {
 
     if (result.isSuccess) {
       await _ref.read(accountsProvider.notifier).loadAccounts(transaction.profileId);
-      _ref.invalidate(budgetsProvider);
+      _ref.invalidate(budgetOverviewProvider);
       _ref.invalidate(goalsProvider);
-      _ref.invalidate(totalBudgetSummaryProvider);
       
       if (transaction.type == 'debit' && transaction.categoryId != null) {
         _checkBudgetStatus(transaction);
@@ -188,7 +186,7 @@ class TransactionsNotifier extends StateNotifier<TransactionsState> {
 
     if (result.isSuccess) {
       await _ref.read(accountsProvider.notifier).loadAccounts(profileId);
-      _ref.invalidate(budgetsProvider);
+      _ref.invalidate(budgetOverviewProvider);
       _ref.invalidate(goalsProvider);
       
       await loadTransactions(profileId);
@@ -205,29 +203,9 @@ class TransactionsNotifier extends StateNotifier<TransactionsState> {
     await loadTransactions(profileId);
   }
 
-  /// Helper to check budget status and trigger alerts
+  /// Helper to check budget status (UI will handle alerts via budgetOverviewProvider)
   Future<void> _checkBudgetStatus(Transaction transaction) async {
-    try {
-      final repository = _ref.read(budgetRepositoryProvider);
-      final budgetResult = await repository.getBudgetForPeriod(
-        transaction.profileId,
-        transaction.categoryId!,
-        transaction.timestamp.month,
-        transaction.timestamp.year,
-      );
-
-      if (budgetResult.isSuccess && budgetResult.successData != null) {
-        final usageResult = await repository.getBudgetUsage(budgetResult.successData!.id);
-        if (usageResult.isSuccess) {
-          final usage = usageResult.successData!;
-          if (usage.isOverBudget || usage.isNearLimit) {
-            _ref.read(budgetAlertProvider.notifier).state = usage;
-          }
-        }
-      }
-    } catch (e) {
-      // Non-critical error, just log
-    }
+    // Legacy logic removed - new BudgetOverview model handles this reactively
   }
 
   /// Clear any error state

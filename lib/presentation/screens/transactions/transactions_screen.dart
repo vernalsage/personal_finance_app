@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import '../../../domain/entities/transaction.dart';
+import '../../../core/style/app_colors.dart';
 import '../../../domain/entities/transaction_with_details.dart';
-import '../../../core/utils/currency_utils.dart';
-import '../../../main.dart';
 import '../../providers/transaction_providers.dart' as providers;
 import '../transaction/add_transaction_screen.dart';
+import '../../../core/utils/currency_utils.dart';
 
 class TransactionsScreen extends ConsumerStatefulWidget {
   final String? initialFilter;
@@ -27,8 +26,12 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
     super.initState();
     _selectedFilter = widget.initialFilter ?? 'All';
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(providers.transactionsProvider.notifier).loadTransactions(1);
+      _loadData();
     });
+  }
+
+  Future<void> _loadData() async {
+    await ref.read(providers.transactionsProvider.notifier).loadTransactions(1);
   }
 
   @override
@@ -92,9 +95,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
     final grouped = _getGrouped(transactionsState.transactions);
 
     return Scaffold(
-      backgroundColor: kBackground,
       appBar: AppBar(
-        backgroundColor: kSurface,
         title: const Text('Transactions'),
         leading: Navigator.canPop(context)
             ? IconButton(
@@ -105,7 +106,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
         automaticallyImplyLeading: false,
         actions: [
           IconButton(
-            icon: const Icon(Icons.add, color: kPrimary),
+            icon: const Icon(Icons.add, color: AppColors.primary),
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const AddTransactionScreen()),
@@ -113,8 +114,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
             },
           ),
           IconButton(
-            icon: const Icon(Icons.calendar_today_outlined,
-                color: kTextSecondary, size: 20),
+            icon: const Icon(Icons.calendar_today_outlined, size: 20),
             onPressed: () {},
           ),
         ],
@@ -123,7 +123,6 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
         children: [
           // ─── Search + Filters ──────────────────────────────────────────────
           Container(
-            color: kSurface,
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
             child: Column(
               children: [
@@ -134,11 +133,10 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                   decoration: InputDecoration(
                     hintText: 'Search merchants, categories...',
                     prefixIcon:
-                        const Icon(Icons.search, color: kPrimary, size: 20),
+                        const Icon(Icons.search, color: AppColors.primary, size: 20),
                     suffixIcon: _searchQuery.isNotEmpty
                         ? IconButton(
-                            icon: const Icon(Icons.clear,
-                                size: 18, color: kTextSecondary),
+                            icon: const Icon(Icons.clear, size: 18),
                             onPressed: () {
                               _searchController.clear();
                               setState(() => _searchQuery = '');
@@ -149,18 +147,17 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                         horizontal: 14, vertical: 11),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(40),
-                      borderSide: const BorderSide(color: kBorder),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(40),
-                      borderSide: const BorderSide(color: kBorder),
+                      borderSide: const BorderSide(color: Colors.transparent),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(40),
-                      borderSide: const BorderSide(color: kPrimary, width: 2),
+                      borderSide: const BorderSide(color: AppColors.primary, width: 2),
                     ),
                     filled: true,
-                    fillColor: kBackground,
+                    fillColor: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.5),
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -178,99 +175,101 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
 
           // ─── Transaction List ──────────────────────────────────────────────
           Expanded(
-            child: transactionsState.isLoading
-                ? const Center(
-                    child: CircularProgressIndicator(color: kPrimary),
-                  )
-                : transactionsState.error != null
-                    ? Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.error_outline, size: 48, color: kError),
-                            const SizedBox(height: 12),
-                            Text('Error: ${transactionsState.error}',
-                                style: Theme.of(context).textTheme.bodyMedium),
-                            TextButton(
-                              onPressed: () => ref
-                                  .read(providers.transactionsProvider.notifier)
-                                  .loadTransactions(1),
-                              child: const Text('Try Again'),
-                            ),
-                          ],
-                        ),
-                      )
-                    : grouped.isEmpty
-                        ? Center(
+            child: RefreshIndicator(
+              color: AppColors.primary,
+              onRefresh: _loadData,
+              child: transactionsState.isLoading && transactionsState.transactions.isEmpty
+                  ? const Center(
+                      child: CircularProgressIndicator(color: AppColors.primary),
+                    )
+                  : transactionsState.error != null
+                      ? Center(
+                          child: SingleChildScrollView(
+                            physics: const AlwaysScrollableScrollPhysics(),
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.receipt_long_outlined,
-                                    size: 56, color: kBorder),
+                                const Icon(Icons.error_outline, size: 48, color: AppColors.error),
                                 const SizedBox(height: 12),
-                                Text(
-                                    _selectedFilter == 'All'
-                                        ? 'No transactions found'
-                                        : 'No $_selectedFilter transactions found',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodyLarge
-                                        ?.copyWith(color: kTextSecondary)),
-                                if (_selectedFilter != 'All')
-                                  TextButton(
-                                    onPressed: () => setState(() => _selectedFilter = 'All'),
-                                    child: const Text('Clear Filters'),
-                                  ),
+                                Text('Error: ${transactionsState.error}',
+                                    style: Theme.of(context).textTheme.bodyMedium),
+                                TextButton(
+                                  onPressed: _loadData,
+                                  child: const Text('Try Again'),
+                                ),
                               ],
                             ),
-                          )
-                        : ListView.builder(
-                    padding: const EdgeInsets.only(top: 8, bottom: 80),
-                    itemCount: grouped.length,
-                    itemBuilder: (context, gi) {
-                      final dateLabel = grouped.keys.elementAt(gi);
-                      final txList = grouped[dateLabel]!;
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Date header
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
-                            child: Text(
-                              dateLabel,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .labelMedium
-                                  ?.copyWith(color: kTextSecondary),
-                            ),
                           ),
-                          // Transactions card
-                          Container(
-                            margin: const EdgeInsets.symmetric(horizontal: 16),
-                            decoration: BoxDecoration(
-                              color: kCardBg,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: kBorder),
-                            ),
-                            child: Column(
-                              children: txList.asMap().entries.map((entry) {
-                                final i = entry.key;
-                                final t = entry.value;
-                                return Column(
+                        )
+                      : grouped.isEmpty
+                          ? Center(
+                              child: SingleChildScrollView(
+                                physics: const AlwaysScrollableScrollPhysics(),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    _TransactionCard(transactionWithDetails: t),
-                                    if (i < txList.length - 1)
-                                      const Divider(
-                                          height: 1, indent: 60, endIndent: 16),
+                                    const Icon(Icons.receipt_long_outlined,
+                                        size: 56),
+                                    const SizedBox(height: 12),
+                                    Text(
+                                        _selectedFilter == 'All'
+                                            ? 'No transactions found'
+                                            : 'No $_selectedFilter transactions found',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodyLarge),
+                                    if (_selectedFilter != 'All')
+                                      TextButton(
+                                        onPressed: () => setState(() => _selectedFilter = 'All'),
+                                        child: const Text('Clear Filters'),
+                                      ),
                                   ],
-                                );
-                              }).toList(),
+                                ),
+                              ),
+                            )
+                          : ListView.builder(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.only(top: 8, bottom: 80),
+                      itemCount: grouped.length,
+                      itemBuilder: (context, gi) {
+                        final dateLabel = grouped.keys.elementAt(gi);
+                        final txList = grouped[dateLabel]!;
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Date header
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
+                              child: Text(
+                                dateLabel,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .labelMedium,
+                              ),
                             ),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
+                            // Transactions card
+                            Card(
+                              margin: const EdgeInsets.symmetric(horizontal: 16),
+                              child: Column(
+                                children: txList.asMap().entries.map((entry) {
+                                  final i = entry.key;
+                                  final t = entry.value;
+                                  return Column(
+                                    children: [
+                                      _TransactionCard(transactionWithDetails: t),
+                                      if (i < txList.length - 1)
+                                        const Divider(
+                                            height: 1, indent: 60, endIndent: 16),
+                                    ],
+                                  );
+                                }).toList(),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+            ),
           ),
         ],
       ),
@@ -290,9 +289,9 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
         margin: const EdgeInsets.only(right: 8),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
         decoration: BoxDecoration(
-          color: isActive ? kPrimary : kBackground,
+          color: isActive ? AppColors.primary : Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.5),
           borderRadius: BorderRadius.circular(40),
-          border: Border.all(color: isActive ? kPrimary : kBorder),
+          border: Border.all(color: isActive ? AppColors.primary : Theme.of(context).dividerTheme.color ?? Colors.grey.withOpacity(0.2)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -302,7 +301,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color: isActive ? Colors.white : kTextSecondary,
+                color: isActive ? Colors.white : Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7),
               ),
             ),
             if (pendingCount > 0 && !isActive) ...[
@@ -311,7 +310,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                 width: 8,
                 height: 8,
                 decoration: const BoxDecoration(
-                  color: kWarning,
+                  color: AppColors.warning,
                   shape: BoxShape.circle,
                 ),
               ),
@@ -321,7 +320,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
               Icon(
                 Icons.keyboard_arrow_down,
                 size: 14,
-                color: isActive ? Colors.white : kTextSecondary,
+                color: isActive ? Colors.white : Theme.of(context).iconTheme.color?.withOpacity(0.5),
               ),
             ],
           ],
@@ -344,11 +343,12 @@ class _TransactionCard extends ConsumerWidget {
     final merchant = transactionWithDetails.merchant;
     
     final isCredit = transaction.amountMinor >= 0;
-    final amountColor = isCredit ? kSuccess : kError;
+    final amountColor = isCredit ? AppColors.success : AppColors.error;
     
     // Dynamic Icon/Color from Category
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final iconData = _getIconData(category?.icon, transaction.type);
-    final iconColor = _getColor(category?.color, transaction.type);
+    final iconColor = _getColor(category?.color, transaction.type, isDark);
 
     final currency = transactionWithDetails.account?.currency ?? 'NGN';
     final amount = CurrencyUtils.formatMinorToDisplay(
@@ -397,7 +397,7 @@ class _TransactionCard extends ConsumerWidget {
                         style: Theme.of(context)
                             .textTheme
                             .bodySmall
-                            ?.copyWith(color: kTextSecondary),
+                            ?.copyWith(color: AppColors.textSecondary(isDark)),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -406,13 +406,13 @@ class _TransactionCard extends ConsumerWidget {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                           decoration: BoxDecoration(
-                            color: kWarning.withValues(alpha: 0.1),
+                            color: AppColors.warning.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: const Text(
                             'REVIEW',
                             style: TextStyle(
-                              color: kWarning,
+                              color: AppColors.warning,
                               fontSize: 9,
                               fontWeight: FontWeight.w800,
                             ),
@@ -444,7 +444,7 @@ class _TransactionCard extends ConsumerWidget {
                       child: const Text(
                         'Approve',
                         style: TextStyle(
-                          color: kPrimary,
+                          color: AppColors.primary,
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
                           decoration: TextDecoration.underline,
@@ -479,17 +479,17 @@ class _TransactionCard extends ConsumerWidget {
     }
   }
 
-  Color _getColor(String? colorHex, String type) {
+  Color _getColor(String? colorHex, String type, bool isDark) {
     if (type == 'transfer_out' || type == 'transfer_in') {
-      return kPrimary;
+      return AppColors.primary;
     }
     
-    if (colorHex == null || colorHex.isEmpty) return kTextSecondary;
+    if (colorHex == null || colorHex.isEmpty) return AppColors.textSecondary(isDark);
     try {
       final hex = colorHex.replaceAll('#', '');
       return Color(int.parse('FF$hex', radix: 16));
     } catch (_) {
-      return kTextSecondary;
+      return AppColors.textSecondary(isDark);
     }
   }
 }

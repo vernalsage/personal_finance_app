@@ -6,7 +6,7 @@ import '../../../core/utils/currency_utils.dart';
 import '../../providers/account_providers.dart';
 import '../../providers/transaction_providers.dart' as providers;
 import '../../../core/di/usecase_providers.dart';
-import '../../../main.dart';
+import '../../../core/style/app_colors.dart';
 
 class TransferScreen extends ConsumerStatefulWidget {
   const TransferScreen({super.key});
@@ -257,7 +257,7 @@ class _TransferScreenState extends ConsumerState<TransferScreen> {
               
               if (fromAccount != null && toAccount != null && fromAccount.currency != toAccount.currency) {
                 return Card(
-                  color: kPrimary.withValues(alpha: 0.05),
+                  color: AppColors.primary.withValues(alpha: 0.05),
                   child: Padding(
                     padding: const EdgeInsets.all(12.0),
                     child: Column(

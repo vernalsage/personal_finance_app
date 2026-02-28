@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/style/app_colors.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -101,13 +102,13 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
                   child: Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.orange.withOpacity(0.1),
+                      color: AppColors.warning.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                      border: Border.all(color: AppColors.warning.withValues(alpha: 0.3)),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.info_outline, color: Colors.orange),
+                        const Icon(Icons.info_outline, color: AppColors.warning),
                         const SizedBox(width: 12),
                         const Expanded(
                           child: Text(
@@ -172,7 +173,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
                       value: 'debit',
                       child: Row(
                         children: [
-                          Icon(Icons.arrow_upward, color: Colors.red),
+                          Icon(Icons.arrow_upward, color: AppColors.error),
                           SizedBox(width: 8),
                           Text('Debit'),
                         ],
@@ -182,7 +183,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
                       value: 'credit',
                       child: Row(
                         children: [
-                          Icon(Icons.arrow_downward, color: Colors.green),
+                          Icon(Icons.arrow_downward, color: AppColors.success),
                           SizedBox(width: 8),
                           Text('Credit'),
                         ],
@@ -192,7 +193,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
                       value: 'transfer_out',
                       child: Row(
                         children: [
-                          Icon(Icons.swap_horiz, color: Colors.orange),
+                          Icon(Icons.swap_horiz, color: AppColors.warning),
                           SizedBox(width: 8),
                           Text('Transfer (Out)'),
                         ],
@@ -202,7 +203,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
                       value: 'transfer_in',
                       child: Row(
                         children: [
-                          Icon(Icons.swap_horiz, color: Colors.blue),
+                          Icon(Icons.swap_horiz, color: AppColors.primary),
                           SizedBox(width: 8),
                           Text('Transfer (In)'),
                         ],
@@ -425,7 +426,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(isEditing ? 'Transaction updated successfully' : 'Transaction added successfully'),
-              backgroundColor: Colors.green,
+              backgroundColor: AppColors.success,
             ),
           );
 
@@ -436,7 +437,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Error: ${transactionsState.error}'),
-              backgroundColor: Colors.red,
+              backgroundColor: AppColors.error,
             ),
           );
         }
@@ -444,7 +445,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error),
         );
       }
     } finally {

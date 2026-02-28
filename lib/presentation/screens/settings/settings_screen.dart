@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/security_providers.dart';
-import '../budgets/budgets_screen.dart';
+import '../budget/budget_screen.dart';
 import '../goals/goals_screen.dart';
 import '../recurring/recurring_rules_screen.dart';
 import '../merchants/merchants_screen.dart';
 import '../transactions/transactions_screen.dart';
 import '../../providers/profile_providers.dart';
 import '../../../core/di/service_providers.dart';
-import '../../../main.dart';
+import '../../../core/style/app_colors.dart';
+import '../../providers/settings_providers.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -16,11 +17,12 @@ class SettingsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final securityState = ref.watch(securityProvider);
+    final themeMode = ref.watch(themeModeProvider);
 
     return Scaffold(
-      backgroundColor: kBackground,
       appBar: AppBar(
         title: const Text('More'),
+        automaticallyImplyLeading: false,
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -31,7 +33,7 @@ class SettingsScreen extends ConsumerWidget {
               title: 'Budgets',
               subtitle: 'Manage your monthly spending limits',
               onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const BudgetsScreen()),
+                MaterialPageRoute(builder: (_) => const BudgetScreen()),
               ),
             ),
             _SettingTile(
@@ -63,7 +65,14 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ]),
           const SizedBox(height: 24),
-          _buildSection(context, 'App Settings', [
+          _buildSection(context, 'App Appearance', [
+             _ThemeSelectionTile(
+                currentMode: themeMode,
+                onChanged: (mode) => ref.read(themeModeProvider.notifier).setThemeMode(mode),
+              ),
+          ]),
+          const SizedBox(height: 24),
+          _buildSection(context, 'App Settings & Security', [
             const _BaseCurrencyTile(),
             _SettingTile(
               icon: Icons.history_outlined,
@@ -96,7 +105,7 @@ class SettingsScreen extends ConsumerWidget {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text('Export failed: $e'),
-                        backgroundColor: kError,
+                        backgroundColor: AppColors.error,
                       ),
                     );
                   }
@@ -104,6 +113,14 @@ class SettingsScreen extends ConsumerWidget {
               },
             ),
           ]),
+          const SizedBox(height: 32),
+          Center(
+            child: Text(
+              'App Version 1.0.0',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
+          const SizedBox(height: 80),
         ],
       ),
     );
@@ -118,18 +135,12 @@ class SettingsScreen extends ConsumerWidget {
           child: Text(
             title.toUpperCase(),
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: kTextSecondary,
               letterSpacing: 1.2,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w800,
             ),
           ),
         ),
-        Container(
-          decoration: BoxDecoration(
-            color: kSurface,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: kBorder),
-          ),
+        Card(
           child: Column(
             children: children,
           ),
@@ -158,15 +169,89 @@ class _SettingTile extends StatelessWidget {
       leading: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: kPrimaryBg,
+          color: AppColors.primary.withOpacity(0.1),
           borderRadius: BorderRadius.circular(8),
         ),
-        child: Icon(icon, color: kPrimary, size: 20),
+        child: Icon(icon, color: AppColors.primary, size: 20),
       ),
       title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
       subtitle: Text(subtitle, style: const TextStyle(fontSize: 12)),
-      trailing: const Icon(Icons.chevron_right, size: 20, color: kTextSecondary),
+      trailing: const Icon(Icons.chevron_right, size: 20),
       onTap: onTap,
+    );
+  }
+}
+
+class _ThemeSelectionTile extends StatelessWidget {
+  final ThemeMode currentMode;
+  final Function(ThemeMode) onChanged;
+
+  const _ThemeSelectionTile({
+    required this.currentMode,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.palette_outlined, color: AppColors.primary, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Color Theme', style: TextStyle(fontWeight: FontWeight.w600)),
+                  Text(
+                    'Customize app appearance',
+                    style: TextStyle(fontSize: 12, color: Theme.of(context).textTheme.bodySmall?.color),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          SegmentedButton<ThemeMode>(
+            segments: const [
+              ButtonSegment(
+                value: ThemeMode.light,
+                label: Text('Light'),
+                icon: Icon(Icons.light_mode_outlined, size: 16),
+              ),
+              ButtonSegment(
+                value: ThemeMode.dark,
+                label: Text('Dark'),
+                icon: Icon(Icons.dark_mode_outlined, size: 16),
+              ),
+              ButtonSegment(
+                value: ThemeMode.system,
+                label: Text('System'),
+                icon: Icon(Icons.settings_suggest_outlined, size: 16),
+              ),
+            ],
+            selected: {currentMode},
+            onSelectionChanged: (Set<ThemeMode> newSelection) {
+              onChanged(newSelection.first);
+            },
+            showSelectedIcon: false,
+            style: const ButtonStyle(
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              visualDensity: VisualDensity.compact,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -188,10 +273,10 @@ class _SecurityToggleTile extends StatelessWidget {
       secondary: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: kPrimaryBg,
+          color: AppColors.primary.withOpacity(0.1),
           borderRadius: BorderRadius.circular(8),
         ),
-        child: const Icon(Icons.security_outlined, color: kPrimary, size: 20),
+        child: const Icon(Icons.security_outlined, color: AppColors.primary, size: 20),
       ),
       title: const Text('Biometric Lock', style: TextStyle(fontWeight: FontWeight.w600)),
       subtitle: Text(
@@ -200,7 +285,7 @@ class _SecurityToggleTile extends StatelessWidget {
       ),
       value: isAvailable && isActive,
       onChanged: isAvailable ? onChanged : null,
-      activeColor: kPrimary,
+      activeColor: AppColors.primary,
     );
   }
 }
@@ -218,7 +303,7 @@ class _BaseCurrencyTile extends ConsumerWidget {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Failed to update currency: ${next.error}'),
-            backgroundColor: kError,
+            backgroundColor: AppColors.error,
           ),
         );
       }
@@ -230,16 +315,16 @@ class _BaseCurrencyTile extends ConsumerWidget {
       leading: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: kPrimaryBg,
+          color: AppColors.primary.withOpacity(0.1),
           borderRadius: BorderRadius.circular(8),
         ),
-        child: const Icon(Icons.currency_exchange_outlined, color: kPrimary, size: 20),
+        child: const Icon(Icons.currency_exchange_outlined, color: AppColors.primary, size: 20),
       ),
       title: const Text('Base Currency', style: TextStyle(fontWeight: FontWeight.w600)),
       subtitle: profileAsync.isLoading && profileAsync.value == null
         ? const Text('Loading...')
-        : Text('Primary display currency: $currentCurrency'),
-      trailing: const Icon(Icons.chevron_right, size: 20, color: kTextSecondary),
+        : Text('Primary display currency: $currentCurrency', style: const TextStyle(fontSize: 12)),
+      trailing: const Icon(Icons.chevron_right, size: 20),
       onTap: () => _showCurrencyPicker(context, ref, currentCurrency),
     );
   }
@@ -257,7 +342,7 @@ class _BaseCurrencyTile extends ConsumerWidget {
             ),
             ...['NGN', 'USD', 'GBP', 'EUR'].map((c) => ListTile(
               title: Text(c),
-              trailing: c == current ? const Icon(Icons.check, color: kPrimary) : null,
+              trailing: c == current ? const Icon(Icons.check, color: AppColors.primary) : null,
               onTap: () {
                 ref.read(activeProfileProvider.notifier).updateCurrency(c);
                 Navigator.pop(context);

@@ -5,6 +5,7 @@ import '../../providers/goal_providers.dart';
 import '../../widgets/loading_widget.dart';
 import '../../widgets/error_widget.dart';
 import '../../../core/utils/currency_utils.dart';
+import '../../../core/style/app_colors.dart';
 import '../../../main.dart';
 
 class GoalsScreen extends ConsumerWidget {
@@ -14,8 +15,10 @@ class GoalsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final goalsAsync = ref.watch(goalsProvider);
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: kBackground,
+      backgroundColor: AppColors.background(isDark),
       appBar: AppBar(
         title: const Text('Goals'),
         actions: [
@@ -54,7 +57,7 @@ class GoalsScreen extends ConsumerWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.flag_outlined, size: 64, color: kTextSecondary.withValues(alpha: 0.5)),
+          Icon(Icons.flag_outlined, size: 64, color: AppColors.textSecondary(Theme.of(context).brightness == Brightness.dark).withValues(alpha: 0.5)),
           const SizedBox(height: 16),
           Text(
             'No financial goals set yet',
@@ -86,7 +89,7 @@ class _GoalCard extends StatelessWidget {
     final target = CurrencyUtils.formatMinorToDisplay(goal.targetAmountMinor, 'NGN');
     final percent = goal.completionPercentage / 100.0;
     
-    final progressColor = goal.isCompleted ? kSuccess : kPrimary;
+    final progressColor = goal.isCompleted ? AppColors.success : AppColors.primary;
 
     return Card(
       child: Padding(
@@ -106,7 +109,7 @@ class _GoalCard extends StatelessWidget {
                   ),
                 ),
                 if (goal.isCompleted)
-                  const Icon(Icons.check_circle, color: kSuccess, size: 20),
+                  const Icon(Icons.check_circle, color: AppColors.success, size: 20),
               ],
             ),
             if (goal.description != null && goal.description!.isNotEmpty) ...[
@@ -126,7 +129,7 @@ class _GoalCard extends StatelessWidget {
                   '$current saved',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     fontWeight: FontWeight.w600,
-                    color: kTextPrimary,
+                    color: AppColors.textPrimary(Theme.of(context).brightness == Brightness.dark),
                   ),
                 ),
                 Text(
@@ -140,7 +143,7 @@ class _GoalCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(4),
               child: LinearProgressIndicator(
                 value: percent.clamp(0.0, 1.0),
-                backgroundColor: kBorder,
+                backgroundColor: AppColors.border(Theme.of(context).brightness == Brightness.dark),
                 valueColor: AlwaysStoppedAnimation<Color>(progressColor),
                 minHeight: 8,
               ),

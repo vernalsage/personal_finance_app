@@ -6,6 +6,7 @@ import '../../../domain/entities/recurring_rule.dart';
 import '../../widgets/loading_widget.dart';
 import '../../widgets/error_widget.dart';
 import '../../../core/utils/currency_utils.dart';
+import '../../../core/style/app_colors.dart';
 import '../../../main.dart';
 
 class RecurringRulesScreen extends ConsumerWidget {
@@ -15,8 +16,10 @@ class RecurringRulesScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final rulesAsync = ref.watch(recurringRulesProvider);
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: kBackground,
+      backgroundColor: AppColors.background(isDark),
       appBar: AppBar(
         title: const Text('Recurring Payments'),
         actions: [
@@ -34,7 +37,7 @@ class RecurringRulesScreen extends ConsumerWidget {
               } catch (e) {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Error: $e'), backgroundColor: kError),
+                    SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error),
                   );
                 }
               }
@@ -75,7 +78,7 @@ class RecurringRulesScreen extends ConsumerWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.sync_outlined, size: 64, color: kTextSecondary.withValues(alpha: 0.5)),
+          Icon(Icons.sync_outlined, size: 64, color: AppColors.textSecondary(Theme.of(context).brightness == Brightness.dark).withValues(alpha: 0.5)),
           const SizedBox(height: 16),
           Text(
             'No recurring payments set up',
@@ -107,7 +110,8 @@ class _RuleCard extends StatelessWidget {
     final frequency = rule.frequency.toString().split('.').last;
     final type = rule.type.toString().split('.').last;
     
-    final typeColor = rule.type == RecurringType.income ? kSuccess : kError;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final typeColor = rule.type == RecurringType.income ? AppColors.success : AppColors.error;
 
     return Card(
       child: Padding(
@@ -152,7 +156,7 @@ class _RuleCard extends StatelessWidget {
                     Text(
                       _formatDate(rule.nextExecutionDate),
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: kTextPrimary,
+                        color: AppColors.textPrimary(isDark),
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -193,13 +197,13 @@ class _Chip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: kPrimaryBg,
+        color: AppColors.primaryBg,
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
         text,
         style: const TextStyle(
-          color: kPrimary,
+          color: AppColors.primary,
           fontSize: 10,
           fontWeight: FontWeight.w700,
         ),

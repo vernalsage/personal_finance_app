@@ -74,8 +74,7 @@ class ProfileNotifier extends AsyncNotifier<Profile?> {
           // 4. Invalidate related providers
           ref.invalidate(getFinancialOverviewUseCaseProvider);
           ref.invalidate(financialOverviewProvider);
-          ref.invalidate(totalBudgetSummaryProvider);
-          ref.invalidate(budgetsProvider);
+          ref.invalidate(budgetOverviewProvider);
           ref.invalidate(cashRunwayProvider);
           ref.invalidate(stabilityScoreProvider);
         },

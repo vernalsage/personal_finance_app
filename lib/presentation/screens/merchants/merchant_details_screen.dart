@@ -7,6 +7,7 @@ import '../../widgets/error_widget.dart';
 import '../../../core/utils/currency_utils.dart';
 import '../../../domain/entities/merchant.dart';
 import '../../../domain/repositories/itransaction_repository.dart';
+import '../../../core/style/app_colors.dart';
 import '../../../main.dart';
 
 class MerchantDetailsScreen extends ConsumerWidget {
@@ -18,8 +19,10 @@ class MerchantDetailsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final transactionsAsync = ref.watch(merchantTransactionsProvider(merchant.id));
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: kBackground,
+      backgroundColor: AppColors.background(isDark),
       appBar: AppBar(
         title: Text(merchant.name),
       ),
@@ -84,16 +87,16 @@ class MerchantDetailsScreen extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: kSurface,
+        color: AppColors.card(Theme.of(context).brightness == Brightness.dark),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: kBorder),
+        border: Border.all(color: AppColors.border(Theme.of(context).brightness == Brightness.dark)),
       ),
       child: Column(
         children: [
           CircleAvatar(
             radius: 30,
-            backgroundColor: kPrimaryBg,
-            child: const Icon(Icons.storefront, color: kPrimary, size: 30),
+            backgroundColor: AppColors.primaryBg,
+            child: const Icon(Icons.storefront, color: AppColors.primary, size: 30),
           ),
           const SizedBox(height: 12),
           Text(merchant.name, style: Theme.of(context).textTheme.headlineSmall),
@@ -117,7 +120,7 @@ class MerchantDetailsScreen extends ConsumerWidget {
         padding: const EdgeInsets.all(32),
         child: Column(
           children: [
-            Icon(Icons.receipt_long_outlined, size: 48, color: kTextSecondary.withValues(alpha: 0.5)),
+            Icon(Icons.receipt_long_outlined, size: 48, color: AppColors.textSecondary(Theme.of(context).brightness == Brightness.dark).withValues(alpha: 0.5)),
             const SizedBox(height: 8),
             Text('No transactions found', style: Theme.of(context).textTheme.bodyMedium),
           ],
@@ -176,7 +179,7 @@ class _TransactionRow extends StatelessWidget {
           Text(
             '${isCredit ? '+' : '-'}$amount',
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              color: isCredit ? kSuccess : kError,
+              color: isCredit ? AppColors.success : AppColors.error,
               fontWeight: FontWeight.w700,
             ),
           ),

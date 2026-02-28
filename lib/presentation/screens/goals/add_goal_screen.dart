@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/goal_providers.dart';
 import '../../widgets/formatted_number_input.dart';
 import '../../../domain/entities/goal.dart';
+import '../../../core/style/app_colors.dart';
 import '../../../main.dart';
 
 class AddGoalScreen extends ConsumerStatefulWidget {
@@ -53,7 +54,7 @@ class _AddGoalScreenState extends ConsumerState<AddGoalScreen> {
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e'), backgroundColor: kError),
+        SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error),
       );
     }
   }
@@ -73,7 +74,7 @@ class _AddGoalScreenState extends ConsumerState<AddGoalScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: kBackground,
+      backgroundColor: AppColors.background(Theme.of(context).brightness == Brightness.dark),
       appBar: AppBar(
         title: const Text('Set a Goal'),
       ),
@@ -121,20 +122,20 @@ class _AddGoalScreenState extends ConsumerState<AddGoalScreen> {
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: kSurface,
+                    color: AppColors.surface(Theme.of(context).brightness == Brightness.dark),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: kBorder),
+                    border: Border.all(color: AppColors.border(Theme.of(context).brightness == Brightness.dark)),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.calendar_today, size: 20, color: kPrimary),
+                      const Icon(Icons.calendar_today, size: 20, color: AppColors.primary),
                       const SizedBox(width: 12),
                       Text(
                         '${_targetDate.day}/${_targetDate.month}/${_targetDate.year}',
                         style: const TextStyle(fontSize: 15),
                       ),
                       const Spacer(),
-                      const Icon(Icons.arrow_drop_down, color: kTextSecondary),
+                      Icon(Icons.arrow_drop_down, color: AppColors.textSecondary(Theme.of(context).brightness == Brightness.dark)),
                     ],
                   ),
                 ),

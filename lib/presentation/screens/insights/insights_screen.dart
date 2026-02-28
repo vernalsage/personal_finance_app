@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../domain/entities/budget.dart';
+import '../../../domain/models/budget_overview.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../../providers/insight_providers.dart';
@@ -9,6 +9,7 @@ import '../../providers/profile_providers.dart';
 import '../../widgets/loading_widget.dart';
 import '../../widgets/error_widget.dart';
 import '../../../core/utils/currency_utils.dart';
+import '../../../core/style/app_colors.dart';
 import '../../../main.dart';
 
 class InsightsScreen extends ConsumerStatefulWidget {
@@ -35,12 +36,14 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
     final breakdownAsync = ref.watch(expenseBreakdownProvider((start: _startDate, end: _endDate)));
     final weeklySpendingAsync = ref.watch(weeklySpendingProvider);
     final overviewState = ref.watch(financialOverviewProvider);
-    final budgetSummaryAsync = ref.watch(totalBudgetSummaryProvider);
+    final overviewAsync = ref.watch(budgetOverviewProvider);
     final profileAsync = ref.watch(activeProfileProvider);
     final currency = profileAsync.value?.currency ?? 'NGN';
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: kBackground,
+      backgroundColor: AppColors.background(isDark),
       appBar: AppBar(
         title: const Text('Insights'),
       ),
@@ -57,7 +60,11 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                   
                   Text('Budget vs Actual', style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 16),
-                  _buildBudgetComparison(budgetSummaryAsync, currency),
+                  overviewAsync.when(
+                    data: (overview) => _buildBudgetComparison(overview, currency),
+                    loading: () => const SizedBox(height: 100, child: LoadingWidget()),
+                    error: (e, __) => Text('Error loading budget summary: $e'),
+                  ),
                   
                   const SizedBox(height: 24),
                   Text('Expense Breakdown', style: Theme.of(context).textTheme.titleLarge),
@@ -94,7 +101,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
           child: _SummaryCard(
             label: 'Total Expenses',
             value: expenses,
-            color: kError,
+            color: AppColors.error,
             icon: Icons.trending_down,
           ),
         ),
@@ -103,7 +110,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
           child: _SummaryCard(
             label: 'Total Income',
             value: income,
-            color: kSuccess,
+            color: AppColors.success,
             icon: Icons.trending_up,
           ),
         ),
@@ -111,60 +118,55 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
     );
   }
 
-  Widget _buildBudgetComparison(AsyncValue<BudgetUsage> summaryAsync, String currency) {
-    return summaryAsync.when(
-      data: (usage) {
-        final percent = usage.usagePercentage / 100.0;
-        final color = usage.isOverBudget ? kError : (usage.isNearLimit ? kWarning : kPrimary);
-        
-        return Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: kBorder),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildBudgetComparison(BudgetOverview overview, String currency) {
+    final percent = overview.totalPercentUsed;
+    final isOver = overview.totalSpentMinor > overview.totalBudgetedMinor;
+    final color = isOver ? AppColors.error : (percent > 0.8 ? AppColors.warning : AppColors.primary);
+    
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface(Theme.of(context).brightness == Brightness.dark),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border(Theme.of(context).brightness == Brightness.dark)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                   const Text('Current Month', style: TextStyle(fontWeight: FontWeight.w500)),
-                   Text('${usage.usagePercentage.toStringAsFixed(1)}%', 
-                    style: TextStyle(color: color, fontWeight: FontWeight.bold)),
-                ],
+               const Text('Current Month', style: TextStyle(fontWeight: FontWeight.w500)),
+               Text('${(percent * 100).toStringAsFixed(1)}%', 
+                style: TextStyle(color: color, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: percent.clamp(0.0, 1.0),
+              backgroundColor: AppColors.border(Theme.of(context).brightness == Brightness.dark),
+              valueColor: AlwaysStoppedAnimation<Color>(color),
+              minHeight: 12,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Spent: ${CurrencyUtils.formatMinorToDisplay(overview.totalSpentMinor, currency)}',
+                style: TextStyle(fontSize: 12, color: AppColors.textSecondary(Theme.of(context).brightness == Brightness.dark)),
               ),
-              const SizedBox(height: 12),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: LinearProgressIndicator(
-                  value: percent.clamp(0.0, 1.0),
-                  backgroundColor: kBorder,
-                  valueColor: AlwaysStoppedAnimation<Color>(color),
-                  minHeight: 12,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Spent: ${CurrencyUtils.formatMinorToDisplay(usage.spentAmountMinor, currency)}',
-                    style: const TextStyle(fontSize: 12, color: kTextSecondary),
-                  ),
-                  Text(
-                    'Budget: ${CurrencyUtils.formatMinorToDisplay(usage.budgetAmountMinor, currency)}',
-                    style: const TextStyle(fontSize: 12, color: kTextSecondary),
-                  ),
-                ],
+              Text(
+                'Budget: ${CurrencyUtils.formatMinorToDisplay(overview.totalBudgetedMinor, currency)}',
+                style: TextStyle(fontSize: 12, color: AppColors.textSecondary(Theme.of(context).brightness == Brightness.dark)),
               ),
             ],
           ),
-        );
-      },
-      loading: () => const SizedBox(height: 100, child: LoadingWidget()),
-      error: (e, __) => Text('Error loading budget summary: $e'),
+        ],
+      ),
     );
   }
 
@@ -251,7 +253,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                 barRods: [
                   BarChartRodData(
                     toY: e.value / 100.0,
-                    color: kPrimary,
+                    color: AppColors.primary,
                     width: 16,
                     borderRadius: BorderRadius.circular(4),
                   ),
@@ -268,11 +270,11 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
 
   Color _getCategoryColor(String category) {
     final colors = [
-      kPrimary,
-      kPrimaryBg,
-      kWarning,
-      kError,
-      kSuccess,
+      AppColors.primary,
+      AppColors.primaryBg,
+      AppColors.warning,
+      AppColors.error,
+      AppColors.success,
       Colors.purple,
       Colors.orange,
       Colors.cyan,
@@ -299,9 +301,9 @@ class _SummaryCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: kSurface,
+        color: AppColors.surface(Theme.of(context).brightness == Brightness.dark),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: kBorder),
+        border: Border.all(color: AppColors.border(Theme.of(context).brightness == Brightness.dark)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -317,7 +319,7 @@ class _SummaryCard extends StatelessWidget {
           Text(
             value,
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              color: kTextPrimary,
+              color: AppColors.textPrimary(Theme.of(context).brightness == Brightness.dark),
               fontWeight: FontWeight.w800,
             ),
           ),

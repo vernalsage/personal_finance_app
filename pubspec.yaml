@@ -14,8 +14,9 @@ dependencies:
 
   # Core Architecture
   flutter_riverpod: ^2.5.1
-  riverpod_annotation: ^2.5.1
+  riverpod_annotation: ^2.3.5
   collection: ^1.18.0
+  freezed_annotation: ^2.4.4
 
   # Database & Storage
   drift: ^2.18.0
@@ -24,12 +25,11 @@ dependencies:
   path: ^1.9.0
   
   # Security
-  flutter_secure_storage: ^9.2.2
-  local_auth: ^2.3.0
+  flutter_secure_storage: ^9.0.0
+  local_auth: ^2.2.0
   
   # Notifications
   flutter_local_notifications: ^17.2.2
-  # notification_listener_service: ^0.0.2  # Temporarily disabled - package unavailable
   
   # UI & Utilities
   cupertino_icons: ^1.0.8
@@ -57,10 +57,10 @@ dev_dependencies:
   
   # Code Generation
   build_runner: ^2.4.11
-  riverpod_generator: ^2.4.0
+  riverpod_generator: ^2.3.5
   drift_dev: ^2.18.0
-  custom_lint: ^0.7.6
-  riverpod_lint: ^2.4.0
+  freezed: ^2.4.7
+  json_serializable: ^6.7.1
 
 flutter:
   uses-material-design: true
